@@ -1,0 +1,23 @@
+{
+  "routes": {
+    "/api/v1/products": "PRODUCTS_API_URL",
+    "/api/v1/orders": "ORDERS_API_URL", 
+    "/api/v1/inventory": "INVENTORY_API_URL",
+    "/api/v1/customers": "CUSTOMERS_API_URL",
+    "/api/v1/payments": "PAYMENTS_API_URL",
+    "/api/v1/shipping": "SHIPPING_API_URL"
+  },
+  "headers_to_forward": [
+    "Authorization",
+    "X-API-Key",
+    "X-Request-ID",
+    "X-Tenant-ID",
+    "Content-Type",
+    "Accept"
+  ],
+  "headers_to_capture": [
+    "Content-Type",
+    "Cache-Control",
+    "X-Rate-Limit-Remaining"
+  ]
+}

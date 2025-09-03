@@ -1,0 +1,16 @@
+# Binary executables
+mock-server
+capture-proxy
+
+# Captured data directory
+captured/
+
+# OS files
+.DS_Store
+
+# IDE files
+.vscode/
+.idea/
+
+# Go vendor directory
+vendor/
