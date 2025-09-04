@@ -1,0 +1,17 @@
+FROM golang:1.21-alpine AS builder
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY cmd/capture/ ./cmd/capture/
+RUN go build -o capture-proxy cmd/capture/main.go
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates curl
+WORKDIR /app
+
+COPY --from=builder /app/capture-proxy .
+
+EXPOSE 8091
+CMD ["./capture-proxy"]

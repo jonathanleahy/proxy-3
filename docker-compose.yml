@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # Mock Server - Serves recorded API responses
+  mock-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./configs:/app/configs:ro
+    environment:
+      - PORT=8090
+      - CONFIG_PATH=/app/configs
+    networks:
+      - api-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Capture Proxy - Records real API responses
+  capture-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.capture
+    ports:
+      - "8091:8091"
+    volumes:
+      - ./captured:/app/captured
+    environment:
+      - CAPTURE_PORT=8091
+      - OUTPUT_DIR=/app/captured
+      # Add your real API URLs here
+      - DEFAULT_TARGET=${DEFAULT_TARGET:-https://jsonplaceholder.typicode.com}
+      - ACCOUNTS_API_URL=${ACCOUNTS_API_URL:-}
+      - WALLET_API_URL=${WALLET_API_URL:-}
+      - LEDGER_API_API_URL=${LEDGER_API_API_URL:-}
+    networks:
+      - api-network
+    profiles:
+      - capture
+
+  # Example App - Demonstrates proxy usage
+  example-app:
+    build:
+      context: ./example-app
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_PORT=8080
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - USERS_API_URL=${USERS_API_URL:-http://mock-server:8090}
+      - POSTS_API_URL=${POSTS_API_URL:-http://mock-server:8090}
+      - API_BASE_URL=${API_BASE_URL:-http://mock-server:8090}
+    networks:
+      - api-network
+    depends_on:
+      - mock-server
+    profiles:
+      - demo
+
+networks:
+  api-network:
+    driver: bridge
