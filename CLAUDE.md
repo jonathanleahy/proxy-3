@@ -4,28 +4,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a dynamic mock API server for the Firecracker API project, built in Go using Echo framework. It provides:
+This is a dynamic mock API server for the Firecracker API project, built in Go using Echo framework (Go 1.21). It provides:
 - Dynamic route loading from JSON configuration files
-- Hot reload when config files change
+- Hot reload when config files change using fsnotify
 - API response capture proxy for recording real API responses
 - Support for path parameters and response templating
+- Automatic path normalization (IDs become `{id}` placeholders)
 
 ## Development Commands
 
 ```bash
-# Run mock server standalone
+# Run mock server standalone (port 8090)
 go run cmd/main.go
 
-# Run capture proxy (for recording real API responses)
+# Run capture proxy for recording real API responses (port 8091)
 go run cmd/capture/main.go
 
-# Build the project
+# Quick capture setup with script
+./capture-real-apis.sh intercept  # Creates run-capture-proxy.sh
+
+# Build binaries
 go build -o mock-server cmd/main.go
 go build -o capture-proxy cmd/capture/main.go
 
 # Run with Docker
 docker build -t mock-api-server .
 docker run -p 8090:8090 -v $(pwd)/configs:/app/configs mock-api-server
+
+# Manage services (if using run-with-mocks.sh)
+./run-with-mocks.sh start   # Start all services
+./run-with-mocks.sh stop    # Stop services
+./run-with-mocks.sh capture # Start capture mode
 ```
 
 ## Architecture
@@ -85,12 +94,35 @@ Path parameters use `{param}` syntax and are replaced with `{{param}}` in respon
 
 ## Capture Workflow
 
+### Quick Start (Recommended)
+```bash
+# 1. Generate capture script
+./capture-real-apis.sh intercept
+
+# 2. Edit run-capture-proxy.sh with real API URLs
+# 3. Run proxy
+./run-capture-proxy.sh
+
+# 4. Update app's .env to use proxy
+# 5. Generate traffic
+# 6. Save captures
+curl http://localhost:8091/capture/save
+```
+
+### Manual Setup
 1. Set real API URLs as environment variables
 2. Run capture proxy: `go run cmd/capture/main.go`
 3. Point your application to proxy URLs (e.g., http://localhost:8091/accounts)
 4. Use the application to generate traffic
 5. Save captures: `curl http://localhost:8091/capture/save`
-6. Copy captured JSON from `captured/` to `configs/` for use as mocks
+6. Check status: `curl http://localhost:8091/capture/status`
+7. Copy captured JSON from `captured/` to `configs/` for use as mocks
+
+### Capture Proxy Features
+- Automatically normalizes paths (numeric IDs → `{id}`)
+- Groups captures by service type
+- Preserves request bodies for POST/PUT/PATCH
+- Outputs mock-server-compatible JSON format
 
 ## Testing
 
@@ -98,3 +130,9 @@ No formal test suite currently exists. Testing is done manually by:
 1. Adding/modifying JSON config files in `configs/`
 2. Verifying routes respond correctly via curl or application
 3. Checking hot-reload by modifying configs while server runs
+
+## Dependencies
+
+- Go 1.21+
+- github.com/labstack/echo/v4 (HTTP server framework)
+- github.com/fsnotify/fsnotify (file system notifications for hot reload)
