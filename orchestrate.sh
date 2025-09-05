@@ -109,6 +109,9 @@ start_record_mode() {
     echo "  • Make requests to ANY external API"
     echo "  • Use your app normally"
     echo "  • Everything will be captured automatically"
+    print_msg "" "$BLUE"
+    print_msg "💡 TIP: To view captured data later, start REPLAY mode (option 2)" "$BLUE"
+    print_msg "        which includes the web viewer at http://localhost:8090/viewer" "$BLUE"
     echo ""
     echo "Example test:"
     echo "  curl -x http://localhost:$PROXY_PORT https://api.github.com/users/github"
@@ -147,6 +150,10 @@ start_replay_mode() {
     
     print_msg "\n✅ REPLAY MODE ACTIVE" "$GREEN"
     print_msg "Mock server running at http://localhost:$MOCK_PORT" "$GREEN"
+    print_msg "" "$BLUE"
+    print_msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" "$YELLOW"
+    print_msg "📊 Web Viewer: http://localhost:$MOCK_PORT/viewer" "$YELLOW"
+    print_msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" "$YELLOW"
     print_msg "\nAvailable endpoints:" "$YELLOW"
     
     # Show available routes
