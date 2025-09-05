@@ -46,16 +46,40 @@ fi
 
 # Step 4: Wait for certificate generation
 echo -e "\n${YELLOW}Step 4: Extracting CA certificate...${NC}"
-sleep 5  # Give mitmproxy time to generate certs
+echo "Waiting for mitmproxy to generate certificates..."
+sleep 8  # Give mitmproxy more time to generate certs
 
 # Create certs directory
 mkdir -p certs
 
-# Extract certificate from container
-docker cp mitm-proxy:/home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem certs/mitmproxy-ca.pem 2>/dev/null || {
-    echo -e "${RED}❌ Failed to extract certificate. Trying alternative method...${NC}"
-    docker exec mitm-proxy cat /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem > certs/mitmproxy-ca.pem
-}
+# Try multiple methods to extract certificate
+echo "Attempting to extract certificate..."
+
+# Method 1: Direct docker cp
+if docker cp mitm-proxy:/home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem certs/mitmproxy-ca.pem 2>/dev/null; then
+    echo "✅ Certificate extracted using docker cp"
+else
+    echo "First method failed, trying alternative..."
+    
+    # Method 2: Use docker exec to cat the file
+    if docker exec mitm-proxy test -f /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem 2>/dev/null; then
+        docker exec mitm-proxy cat /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem > certs/mitmproxy-ca.pem 2>/dev/null
+        if [ -s "certs/mitmproxy-ca.pem" ]; then
+            echo "✅ Certificate extracted using docker exec"
+        else
+            echo "Certificate file is empty, waiting more..."
+            sleep 5
+            docker exec mitm-proxy cat /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem > certs/mitmproxy-ca.pem
+        fi
+    else
+        # Method 3: Try to generate it by making a request
+        echo "Certificate not found yet, triggering generation..."
+        docker exec mitm-proxy mitmdump --version >/dev/null 2>&1
+        sleep 3
+        docker cp mitm-proxy:/home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem certs/mitmproxy-ca.pem 2>/dev/null || \
+        docker exec mitm-proxy cat /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem > certs/mitmproxy-ca.pem 2>/dev/null
+    fi
+fi
 
 if [ -f "certs/mitmproxy-ca.pem" ]; then
     echo "✅ Certificate extracted to certs/mitmproxy-ca.pem"
