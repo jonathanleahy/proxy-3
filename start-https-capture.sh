@@ -15,11 +15,16 @@ echo -e "${GREEN}🔐 HTTPS Capture System${NC}"
 echo "================================"
 
 # Step 1: Clean up any existing containers
-echo -e "\n${YELLOW}Step 1: Cleaning up...${NC}"
+echo -e "\n${YELLOW}Step 1: Cleaning up old containers...${NC}"
+# Stop and remove any existing mitm-proxy containers
 docker stop mitm-proxy 2>/dev/null || true
 docker rm mitm-proxy 2>/dev/null || true
+# Clean up any orphaned mitmproxy containers
+docker ps -aq --filter "ancestor=mitmproxy/mitmproxy" | xargs -r docker rm -f 2>/dev/null || true
+# Clean up mock server containers
 docker stop mock-server-viewer 2>/dev/null || true
 docker rm mock-server-viewer 2>/dev/null || true
+echo "✅ Cleanup complete"
 
 # Step 2: Start mitmproxy
 echo -e "\n${YELLOW}Step 2: Starting MITM proxy...${NC}"
@@ -50,7 +55,7 @@ fi
 # Step 4: Wait for certificate generation
 echo -e "\n${YELLOW}Step 4: Extracting CA certificate...${NC}"
 echo "Waiting for mitmproxy to generate certificates..."
-sleep 10  # Give mitmproxy more time to generate certs
+sleep 3  # Reduced wait time - mitmproxy generates certs quickly
 
 # Create certs directory
 mkdir -p certs
@@ -71,14 +76,16 @@ else
             echo "✅ Certificate extracted using docker exec"
         else
             echo "Certificate file is empty, waiting more..."
-            sleep 5
+            sleep 2
             docker exec mitm-proxy cat /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem > certs/mitmproxy-ca.pem
         fi
     else
-        # Method 3: Try to generate it by making a request
-        echo "Certificate not found yet, triggering generation..."
-        docker exec mitm-proxy mitmdump --version >/dev/null 2>&1
-        sleep 3
+        # Method 3: Force certificate generation by running mitmdump briefly
+        echo "Certificate not found yet, forcing generation..."
+        # Run mitmdump briefly inside the container to ensure cert generation
+        docker exec mitm-proxy sh -c "mitmdump --version && sleep 1" >/dev/null 2>&1 || true
+        sleep 2
+        # Now try to get the certificate
         docker cp mitm-proxy:/home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem certs/mitmproxy-ca.pem 2>/dev/null || \
         docker exec mitm-proxy cat /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem > certs/mitmproxy-ca.pem 2>/dev/null
     fi

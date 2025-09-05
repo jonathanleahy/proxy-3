@@ -5,8 +5,12 @@
 echo "🔐 Quick HTTPS Capture Setup"
 echo "============================"
 
-# Clean up
-docker stop mitm-proxy 2>/dev/null && docker rm mitm-proxy 2>/dev/null
+# Clean up old containers
+echo "Cleaning up old containers..."
+docker stop mitm-proxy 2>/dev/null || true
+docker rm mitm-proxy 2>/dev/null || true
+# Clean up any orphaned mitmproxy containers
+docker ps -aq --filter "ancestor=mitmproxy/mitmproxy" | xargs -r docker rm -f 2>/dev/null || true
 
 # Start mitmproxy
 echo "Starting MITM proxy..."
@@ -19,7 +23,7 @@ docker run -d \
   mitmdump -s /scripts/mitm_capture.py --set confdir=/home/mitmproxy/.mitmproxy
 
 echo "Waiting for proxy to start..."
-sleep 10
+sleep 3
 
 # Get certificate - try until it works
 echo "Extracting certificate..."
@@ -47,7 +51,7 @@ for i in {1..5}; do
         break
     fi
     
-    sleep 3
+    sleep 2
 done
 
 # Final check
