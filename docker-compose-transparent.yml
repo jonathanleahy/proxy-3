@@ -15,8 +15,8 @@ services:
       capture-net:
         ipv4_address: 172.28.0.2
     ports:
-      - "8080:8080"  # mitmproxy transparent proxy (internal)
-      - "8083:8083"  # Your app's REST server (external access)
+      - "8080:8080"  # Your main app's REST server (external access)
+      - "8084:8084"  # mitmproxy transparent proxy (internal)
     sysctls:
       - net.ipv4.ip_forward=1
       - net.ipv6.conf.all.disable_ipv6=1
@@ -42,17 +42,12 @@ services:
       # Traffic is transparently intercepted
       TARGET_API: "https://api.github.com"
       HOME: ${HOME}
-    # Override this with your actual app command
+    # Run the REST server on port 8080
     command: |
       sh -c "
-      echo '🚀 App starting - all HTTPS traffic will be transparently captured!'
-      echo 'No certificates or proxy settings needed!'
-      while true; do
-        echo '📡 Making HTTPS request (will be captured transparently)...'
-        curl -s https://api.github.com/users/github | head -5
-        curl -s https://httpbin.org/json | head -5
-        sleep 10
-      done
+      echo '🚀 REST server starting on port 8080...'
+      cd /proxy
+      go run rest-server.go
       "
 
   # Mock server for viewing captures
