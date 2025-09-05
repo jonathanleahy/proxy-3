@@ -36,6 +36,9 @@ echo "✅ MITM proxy started on port 8080"
 # Step 3: Start viewer (optional but helpful)
 echo -e "\n${YELLOW}Step 3: Starting web viewer...${NC}"
 if [ -f "cmd/main.go" ]; then
+    # Kill any existing process on port 8090
+    lsof -ti:8090 | xargs kill -9 2>/dev/null || true
+    sleep 1
     # If we have the mock server locally, use it
     PORT=8090 go run cmd/main.go &
     VIEWER_PID=$!
@@ -47,7 +50,7 @@ fi
 # Step 4: Wait for certificate generation
 echo -e "\n${YELLOW}Step 4: Extracting CA certificate...${NC}"
 echo "Waiting for mitmproxy to generate certificates..."
-sleep 8  # Give mitmproxy more time to generate certs
+sleep 10  # Give mitmproxy more time to generate certs
 
 # Create certs directory
 mkdir -p certs

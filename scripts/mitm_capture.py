@@ -10,7 +10,6 @@ import os
 from datetime import datetime
 from pathlib import Path
 from mitmproxy import http
-from mitmproxy.net.http import Headers
 
 class CaptureAddon:
     def __init__(self):
