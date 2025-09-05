@@ -13,39 +13,33 @@ A dynamic REST API simulator that captures and replays HTTP traffic - perfect fo
 - ⏱️ **Response Delays**: Simulate network latency
 - 🚀 **Zero Configuration**: Works out of the box with sensible defaults
 
-## Quick Start
+## 🚀 Quick Start → [QUICKSTART.md](QUICKSTART.md)
 
-### 🚀 NEW: Transparent Proxy Mode (Easiest!)
-
+### Option 1: Transparent HTTPS Capture (No Certificates!)
 ```bash
-# 1. Start the transparent recording proxy
-./orchestrate.sh  # Choose option 1
+# Captures ALL HTTPS traffic without any certificates or proxy settings
+./transparent-capture.sh start
+./transparent-capture.sh run 'your-app'
+# View captures at http://localhost:8090/viewer
+```
 
-# 2. Run your app with proxy settings
+### Option 2: Simple HTTP Capture
+```bash
+# Basic HTTP/HTTPS capture (HTTPS connections only, not content)
+go run cmd/capture/main.go
+# In another terminal:
 export HTTP_PROXY=http://localhost:8091
-export HTTPS_PROXY=http://localhost:8091
 ./your-app
-
-# 3. Your app's API calls are automatically captured!
-# No configuration needed - it detects and records everything
-
-# 4. Replay captured traffic later
-./orchestrate.sh  # Choose option 2
 ```
 
-### Traditional Quick Start
-
+### Option 3: Full HTTPS with Certificates
 ```bash
-# Quick demo
-make quick-demo
-
-# Or use interactive menu
-./orchestrate.sh
-
-# Or run components individually
-go run cmd/main.go          # Mock server
-go run cmd/capture/main.go  # Capture proxy
+# Full HTTPS decryption with auto-generated certificates
+./start-https-capture.sh
+# Follow the export commands it shows you
 ```
+
+See [QUICKSTART.md](QUICKSTART.md) for detailed instructions.
 
 ## Configuration
 
