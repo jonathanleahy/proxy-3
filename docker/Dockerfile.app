@@ -1,5 +1,5 @@
 # Dockerfile for test application
-FROM golang:1.21-alpine
+FROM golang:1.23-alpine
 
 WORKDIR /app
 
