@@ -49,6 +49,10 @@
                     💾 Save Captures
                 </button>
                 
+                <button onclick="clearCaptures()" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
+                    🗑️ Clear Captures
+                </button>
+                
                 <button onclick="copyToConfigs()" class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition">
                     📋 Copy to Configs
                 </button>
@@ -280,37 +284,74 @@
                         </span>
                     </div>
                     
+                    ${route.full_url ? `<div class="text-xs text-gray-500 mb-2">URL: <span class="font-mono">${route.full_url}</span></div>` : ''}
+                    ${route.host ? `<div class="text-xs text-gray-500 mb-2">Host: <span class="font-mono">${route.host}</span></div>` : ''}
+                    ${route.response_time_ms ? `<div class="text-xs text-green-600 mb-2">⚡ ${route.response_time_ms}ms</div>` : ''}
                     ${route.description ? `<div class="text-sm text-gray-600 mb-2">${route.description}</div>` : ''}
                     
-                    <div class="mt-3">
+                    <div class="mt-3 space-y-2">
+                        ${route.query_params && Object.keys(route.query_params).length > 0 ? `
+                            <button 
+                                onclick="toggleQueryParams(${index})" 
+                                class="text-xs text-indigo-600 hover:text-indigo-800"
+                            >
+                                Query Parameters ▼
+                            </button>
+                            <div id="query-${index}" class="hidden mt-2">
+                                <pre class="bg-gray-50 p-2 rounded text-xs overflow-x-auto">${formatJSON(route.query_params)}</pre>
+                            </div>
+                        ` : ''}
+                        
+                        ${route.request_headers ? `
+                            <button 
+                                onclick="toggleRequestHeaders(${index})" 
+                                class="text-xs text-orange-600 hover:text-orange-800"
+                            >
+                                Request Headers ▼
+                            </button>
+                            <div id="req-headers-${index}" class="hidden mt-2">
+                                <pre class="bg-gray-50 p-2 rounded text-xs overflow-x-auto">${formatJSON(route.request_headers)}</pre>
+                            </div>
+                        ` : ''}
+                        
                         <button 
                             onclick="toggleResponse(${index})" 
                             class="text-xs text-blue-600 hover:text-blue-800"
                         >
-                            Show Response ▼
+                            Response Body ▼
                         </button>
                         <div id="response-${index}" class="hidden mt-2">
                             <pre class="bg-gray-50 p-2 rounded text-xs overflow-x-auto">${formatJSON(route.response)}</pre>
                         </div>
-                    </div>
-                    
-                    ${route.captured_at ? `
-                        <div class="text-xs text-gray-400 mt-2">
-                            Captured: ${new Date(route.captured_at).toLocaleString()}
-                        </div>
-                    ` : ''}
-                    
-                    ${route.request_body ? `
-                        <div class="mt-2">
+                        
+                        ${route.response_headers ? `
+                            <button 
+                                onclick="toggleResponseHeaders(${index})" 
+                                class="text-xs text-teal-600 hover:text-teal-800"
+                            >
+                                Response Headers ▼
+                            </button>
+                            <div id="resp-headers-${index}" class="hidden mt-2">
+                                <pre class="bg-gray-50 p-2 rounded text-xs overflow-x-auto">${formatJSON(route.response_headers)}</pre>
+                            </div>
+                        ` : ''}
+                        
+                        ${route.request_body ? `
                             <button 
                                 onclick="toggleRequestBody(${index})" 
                                 class="text-xs text-purple-600 hover:text-purple-800"
                             >
-                                Show Request Body ▼
+                                Request Body ▼
                             </button>
                             <div id="request-${index}" class="hidden mt-2">
                                 <pre class="bg-gray-50 p-2 rounded text-xs overflow-x-auto">${formatJSON(route.request_body)}</pre>
                             </div>
+                        ` : ''}
+                    </div>
+                    
+                    ${route.captured_at ? `
+                        <div class="text-xs text-gray-400 mt-3">
+                            Captured: ${new Date(route.captured_at).toLocaleString()}
                         </div>
                     ` : ''}
                 </div>
@@ -327,6 +368,43 @@
         function toggleRequestBody(index) {
             const el = document.getElementById(`request-${index}`);
             el.classList.toggle('hidden');
+        }
+        
+        // Toggle query params visibility
+        function toggleQueryParams(index) {
+            const el = document.getElementById(`query-${index}`);
+            el.classList.toggle('hidden');
+        }
+        
+        // Toggle request headers visibility
+        function toggleRequestHeaders(index) {
+            const el = document.getElementById(`req-headers-${index}`);
+            el.classList.toggle('hidden');
+        }
+        
+        // Toggle response headers visibility
+        function toggleResponseHeaders(index) {
+            const el = document.getElementById(`resp-headers-${index}`);
+            el.classList.toggle('hidden');
+        }
+
+        // Clear captures
+        async function clearCaptures() {
+            if (!confirm('Are you sure you want to clear all live captures?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${PROXY_SERVER}/capture/clear`, { method: 'POST' });
+                if (response.ok) {
+                    alert('Captures cleared successfully!');
+                    loadFiles();
+                } else {
+                    alert('Failed to clear captures');
+                }
+            } catch (error) {
+                alert('Error: Proxy server not running');
+            }
         }
 
         // Filter routes based on search
