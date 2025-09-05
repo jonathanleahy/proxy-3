@@ -60,50 +60,59 @@ start_record_mode() {
     pkill -f "cmd/main.go" 2>/dev/null
     sleep 1
     
-    # Start capture proxy
-    print_msg "Starting capture proxy on port $PROXY_PORT..." "$BLUE"
+    # Start capture proxy in transparent mode
+    print_msg "Starting TRANSPARENT capture proxy on port $PROXY_PORT..." "$BLUE"
+    print_msg "The proxy will automatically detect and record ALL API destinations" "$BLUE"
     
-    # Get real API URLs from user or use defaults
-    echo ""
-    echo "Enter real API URLs (or press Enter for defaults):"
-    read -p "ACCOUNTS_API_URL [https://jsonplaceholder.typicode.com]: " accounts_url
-    accounts_url=${accounts_url:-https://jsonplaceholder.typicode.com}
-    
-    # Start capture proxy with the URLs
+    # Start capture proxy in transparent mode - it will auto-detect destinations
     CAPTURE_PORT=$PROXY_PORT \
     OUTPUT_DIR=$CAPTURED_DIR \
-    DEFAULT_TARGET=$accounts_url \
-    ACCOUNTS_API_URL=$accounts_url \
+    TRANSPARENT_MODE=true \
     go run cmd/capture/main.go &
     
     sleep 2
     
-    # Set proxy environment variables for the Go app
+    # Set proxy environment variables for ALL HTTP traffic
     export HTTP_PROXY="http://localhost:$PROXY_PORT"
     export HTTPS_PROXY="http://localhost:$PROXY_PORT"
     export http_proxy="http://localhost:$PROXY_PORT"
     export https_proxy="http://localhost:$PROXY_PORT"
+    export ALL_PROXY="http://localhost:$PROXY_PORT"
     
-    print_msg "✅ Proxy environment variables set" "$GREEN"
-    print_msg "   HTTP_PROXY=http://localhost:$PROXY_PORT" "$GREEN"
+    print_msg "✅ TRANSPARENT Proxy Active" "$GREEN"
+    print_msg "   ALL HTTP/HTTPS traffic will be intercepted" "$GREEN"
+    print_msg "   Destinations will be auto-detected and recorded" "$GREEN"
     
     # Check if user has a custom Go app to run
     echo ""
-    read -p "Do you have a Go REST app to start? (y/n): " has_app
+    read -p "Do you have an app to start that makes API calls? (y/n): " has_app
     if [[ $has_app == "y" ]]; then
         read -p "Enter the command to start your app [go run main.go]: " app_cmd
         app_cmd=${app_cmd:-go run main.go}
-        print_msg "Starting your app: $app_cmd" "$BLUE"
+        print_msg "Starting your app with proxy: $app_cmd" "$BLUE"
+        
+        # Run app with proxy environment
+        HTTP_PROXY="http://localhost:$PROXY_PORT" \
+        HTTPS_PROXY="http://localhost:$PROXY_PORT" \
         eval "$app_cmd" &
+        
         sleep 2
     fi
     
-    print_msg "\n✅ RECORD MODE ACTIVE" "$GREEN"
-    print_msg "All HTTP calls will be captured through proxy at localhost:$PROXY_PORT" "$GREEN"
+    print_msg "\n✅ TRANSPARENT RECORD MODE ACTIVE" "$GREEN"
+    print_msg "The proxy will:" "$GREEN"
+    echo "  • Automatically detect API destinations"
+    echo "  • Record responses from ALL external APIs"
+    echo "  • Group captures by detected service"
+    echo "  • No configuration needed!"
     print_msg "\nYou can now:" "$YELLOW"
-    echo "  • Make curl requests to your app"
+    echo "  • Make requests to ANY external API"
     echo "  • Use your app normally"
-    echo "  • All external API calls will be recorded"
+    echo "  • Everything will be captured automatically"
+    echo ""
+    echo "Example test:"
+    echo "  curl -x http://localhost:$PROXY_PORT https://api.github.com/users/github"
+    echo "  curl -x http://localhost:$PROXY_PORT https://jsonplaceholder.typicode.com/users"
     echo ""
     echo "Press Enter to return to menu..."
     read

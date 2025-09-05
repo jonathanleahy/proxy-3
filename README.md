@@ -1,37 +1,50 @@
 # Mock API Server
 
-A dynamic REST API simulator that allows you to run the Firecracker API without external dependencies.
+A dynamic REST API simulator that captures and replays HTTP traffic - perfect for testing without external dependencies.
 
 ## Features
 
+- 🔍 **Transparent Proxy Mode**: Automatically detect and record ALL API calls
 - 🔄 **Dynamic Route Loading**: Define routes and responses in JSON files
 - 🔥 **Hot Reload**: Automatically reloads when JSON files change
-- 📸 **Capture Mode**: Record real API responses for use as mocks
+- 📸 **Smart Capture**: Record real API responses for use as mocks
 - 🎯 **Path Parameters**: Support for dynamic path segments like `/accounts/{id}`
+- 🎭 **Record & Replay**: Capture once, replay forever
 - ⏱️ **Response Delays**: Simulate network latency
-- 📝 **Custom Headers**: Set response headers per route
 - 🚀 **Zero Configuration**: Works out of the box with sensible defaults
 
 ## Quick Start
 
-### 1. Run Everything with Mocks
+### 🚀 NEW: Transparent Proxy Mode (Easiest!)
 
 ```bash
-# Start all services including mock server
-./run-with-mocks.sh start
+# 1. Start the transparent recording proxy
+./orchestrate.sh  # Choose option 1
 
-# The API will be available at http://localhost:8080
-# Mock server runs at http://localhost:8090
+# 2. Run your app with proxy settings
+export HTTP_PROXY=http://localhost:8091
+export HTTPS_PROXY=http://localhost:8091
+./your-app
+
+# 3. Your app's API calls are automatically captured!
+# No configuration needed - it detects and records everything
+
+# 4. Replay captured traffic later
+./orchestrate.sh  # Choose option 2
 ```
 
-### 2. Run Mock Server Standalone
+### Traditional Quick Start
 
 ```bash
-cd mock-api-server
-go run cmd/main.go
+# Quick demo
+make quick-demo
 
-# Or with Docker
-docker-compose -f docker-compose.mock.yml up
+# Or use interactive menu
+./orchestrate.sh
+
+# Or run components individually
+go run cmd/main.go          # Mock server
+go run cmd/capture/main.go  # Capture proxy
 ```
 
 ## Configuration
@@ -71,34 +84,35 @@ Routes are defined in JSON files in the `configs/` directory:
 
 ## Capture Real API Responses
 
-### Method 1: Intercept Mode (Recommended)
+### Method 1: Transparent Proxy Mode (NEW - Recommended!)
 
-Run on a machine with access to real APIs:
+No configuration needed - automatically detects and records ALL API calls:
 
 ```bash
-# 1. Start the capture proxy
-./mock-api-server/capture-real-apis.sh intercept
+# 1. Start transparent recording
+./orchestrate.sh  # Choose option 1 (RECORD MODE)
 
-# 2. Run the generated script
-./run-capture-proxy.sh
+# 2. Run your application with proxy
+export HTTP_PROXY=http://localhost:8091
+export HTTPS_PROXY=http://localhost:8091
+./your-web-server
 
-# 3. Update your .env to point to the proxy
-ACCOUNTS_API_URL=http://localhost:8091/accounts
-# ... other APIs
+# 3. Use your application normally
+# ALL external API calls are automatically captured!
 
-# 4. Use the application normally
+# 4. Save captured responses
+# In orchestrator menu, choose option 4 (SAVE)
+# Or: curl http://localhost:8091/capture/save
 
-# 5. Save captured responses
-curl http://localhost:8091/capture/save
-
-# 6. Find JSON files in ./mock-api-server/captured/
+# 5. Replay captured traffic
+./orchestrate.sh  # Choose option 2 (REPLAY MODE)
 ```
 
-### Method 2: Direct Capture
+### Method 2: Traditional Configuration Mode
+
+Configure specific API endpoints to proxy:
 
 ```bash
-cd mock-api-server
-
 # Set real API URLs as environment variables
 export ACCOUNTS_API_URL=https://real-api.example.com
 export WALLET_API_URL=https://real-wallet-api.example.com
@@ -106,7 +120,7 @@ export WALLET_API_URL=https://real-wallet-api.example.com
 # Run capture proxy
 go run cmd/capture/main.go
 
-# Make requests through the proxy
+# Point your app to proxy URLs
 # Save captures when done
 curl http://localhost:8091/capture/save
 ```
@@ -144,19 +158,61 @@ cp ./captured/accounts-captured.json ./configs/
 ./run-with-mocks.sh capture
 ```
 
+## 🔍 Transparent Proxy Mode (New Feature!)
+
+The transparent proxy mode automatically detects and records ALL external API calls without any configuration:
+
+### How It Works
+1. **Set HTTP_PROXY** - Your app sends all HTTP traffic through the proxy
+2. **Auto-Detection** - Proxy automatically detects the destination
+3. **Forward & Record** - Forwards to real API and records response
+4. **Zero Config** - No need to specify API endpoints upfront!
+
+### Example: Recording a Complex App
+```bash
+# Your app makes calls to multiple APIs:
+# - api.github.com
+# - api.stripe.com
+# - maps.googleapis.com
+# - internal-api.company.com
+
+# Just set the proxy and run:
+export HTTP_PROXY=http://localhost:8091
+./your-app
+
+# ALL these APIs are automatically captured!
+```
+
+### Supported Languages
+Works with any language that respects HTTP_PROXY:
+- **Go**: Automatic with `http.Get()`
+- **Node.js**: Automatic with `axios`, `fetch`
+- **Python**: Automatic with `requests`
+- **Java**: Use `-Dhttp.proxyHost`
+- **Docker**: Use `-e HTTP_PROXY`
+
 ## Project Structure
 
 ```
-mock-api-server/
+.
 ├── cmd/
 │   ├── main.go           # Mock server
 │   └── capture/
-│       └── main.go       # Capture proxy
+│       └── main.go       # Capture proxy with transparent mode
 ├── configs/              # Route definition JSON files
-│   └── accounts-api.json # Sample routes
+│   └── *.json           # Mock configurations
 ├── captured/             # Captured real responses
-├── Dockerfile           
-└── README.md
+│   └── *.json           # Auto-captured from proxy
+├── example-app/          # Demo application
+├── docs/                 # Documentation
+│   ├── DUMMYS-GUIDE.md
+│   ├── ORCHESTRATION-TUTORIAL.md
+│   ├── TRANSPARENT-PROXY-GUIDE.md
+│   └── ARCHITECTURE.md
+├── orchestrate.sh        # Interactive menu system
+├── quick-test.sh         # Quick testing script
+├── Makefile             # Common commands
+└── docker-compose.yml   # Container orchestration
 ```
 
 ## Environment Variables

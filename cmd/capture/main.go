@@ -56,38 +56,85 @@ func (cp *CaptureProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var targetURL *url.URL
 	var serviceName string
 
-	for name, target := range cp.targetHosts {
-		if strings.Contains(r.Host, name) || strings.Contains(r.URL.Path, "/"+name+"/") {
-			targetURL = target
-			serviceName = name
-			break
+	// Check if we're in transparent mode
+	transparentMode := os.Getenv("TRANSPARENT_MODE") == "true"
+	
+	if transparentMode {
+		// In transparent mode, extract the actual destination from the request
+		// The request URL contains the full destination
+		if r.URL.Scheme == "" {
+			r.URL.Scheme = "http"
 		}
-	}
+		if r.URL.Host == "" {
+			// For CONNECT method or when Host is in header
+			r.URL.Host = r.Host
+		}
+		
+		// Build target URL from the request
+		targetURL = &url.URL{
+			Scheme: r.URL.Scheme,
+			Host:   r.URL.Host,
+			Path:   "/",
+		}
+		
+		// If it's a proxy request, the full URL is already in r.URL
+		if r.URL.Scheme != "" && r.URL.Host != "" {
+			targetURL = r.URL
+		}
+		
+		serviceName = r.URL.Host
+		log.Printf("Transparent proxy: forwarding to %s%s", r.URL.Host, r.URL.Path)
+	} else {
+		// Original behavior - use configured targets
+		for name, target := range cp.targetHosts {
+			if strings.Contains(r.Host, name) || strings.Contains(r.URL.Path, "/"+name+"/") {
+				targetURL = target
+				serviceName = name
+				break
+			}
+		}
 
-	if targetURL == nil {
-		targetURL = cp.targetHosts["default"]
-		serviceName = "default"
-	}
+		if targetURL == nil {
+			targetURL = cp.targetHosts["default"]
+			serviceName = "default"
+		}
 
-	if targetURL == nil {
-		http.Error(w, "No target configured", http.StatusBadGateway)
-		return
+		if targetURL == nil {
+			http.Error(w, "No target configured", http.StatusBadGateway)
+			return
+		}
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
 	
 	originalDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
-		originalDirector(req)
-		req.Host = targetURL.Host
-		req.URL.Scheme = targetURL.Scheme
-		req.URL.Host = targetURL.Host
-		
-		if strings.HasPrefix(req.URL.Path, "/"+serviceName+"/") {
-			req.URL.Path = strings.TrimPrefix(req.URL.Path, "/"+serviceName)
+		if transparentMode {
+			// In transparent mode, preserve the original request
+			req.URL = r.URL
+			req.Host = r.Host
+			
+			// Ensure scheme is set
+			if req.URL.Scheme == "" {
+				if req.TLS != nil {
+					req.URL.Scheme = "https"
+				} else {
+					req.URL.Scheme = "http"
+				}
+			}
+		} else {
+			// Original behavior for configured targets
+			originalDirector(req)
+			req.Host = targetURL.Host
+			req.URL.Scheme = targetURL.Scheme
+			req.URL.Host = targetURL.Host
+			
+			if strings.HasPrefix(req.URL.Path, "/"+serviceName+"/") {
+				req.URL.Path = strings.TrimPrefix(req.URL.Path, "/"+serviceName)
+			}
 		}
 		
-		log.Printf("Proxying %s %s to %s", req.Method, req.URL.Path, targetURL.Host)
+		log.Printf("Proxying %s %s to %s", req.Method, req.URL.Path, req.URL.Host)
 	}
 
 	proxy.ModifyResponse = func(resp *http.Response) error {
@@ -249,29 +296,38 @@ func main() {
 		outputDir = "./captured"
 	}
 
+	transparentMode := os.Getenv("TRANSPARENT_MODE") == "true"
+
 	proxy := NewCaptureProxy(outputDir)
 
-	if accountsAPI := os.Getenv("ACCOUNTS_API_URL"); accountsAPI != "" {
-		proxy.AddTarget("accounts", accountsAPI)
-	}
-	if accountsCoreAPI := os.Getenv("ACCOUNTS_CORE_API_URL"); accountsCoreAPI != "" {
-		proxy.AddTarget("accounts-core", accountsCoreAPI)
-	}
-	if walletAPI := os.Getenv("WALLET_API_URL"); walletAPI != "" {
-		proxy.AddTarget("wallet", walletAPI)
-	}
-	if ledgerAPI := os.Getenv("LEDGER_API_API_URL"); ledgerAPI != "" {
-		proxy.AddTarget("ledger", ledgerAPI)
-	}
-	if statementsAPI := os.Getenv("STATEMENTS_API_V2_URL"); statementsAPI != "" {
-		proxy.AddTarget("statements", statementsAPI)
-	}
-	if authAPI := os.Getenv("AUTHORISATIONS_API_URL"); authAPI != "" {
-		proxy.AddTarget("authorizations", authAPI)
-	}
+	if transparentMode {
+		log.Println("🔍 TRANSPARENT MODE ENABLED")
+		log.Println("The proxy will automatically detect and forward to actual destinations")
+		log.Println("No configuration needed - all HTTP/HTTPS traffic will be captured")
+	} else {
+		// Only configure specific targets if not in transparent mode
+		if accountsAPI := os.Getenv("ACCOUNTS_API_URL"); accountsAPI != "" {
+			proxy.AddTarget("accounts", accountsAPI)
+		}
+		if accountsCoreAPI := os.Getenv("ACCOUNTS_CORE_API_URL"); accountsCoreAPI != "" {
+			proxy.AddTarget("accounts-core", accountsCoreAPI)
+		}
+		if walletAPI := os.Getenv("WALLET_API_URL"); walletAPI != "" {
+			proxy.AddTarget("wallet", walletAPI)
+		}
+		if ledgerAPI := os.Getenv("LEDGER_API_API_URL"); ledgerAPI != "" {
+			proxy.AddTarget("ledger", ledgerAPI)
+		}
+		if statementsAPI := os.Getenv("STATEMENTS_API_V2_URL"); statementsAPI != "" {
+			proxy.AddTarget("statements", statementsAPI)
+		}
+		if authAPI := os.Getenv("AUTHORISATIONS_API_URL"); authAPI != "" {
+			proxy.AddTarget("authorizations", authAPI)
+		}
 
-	if defaultTarget := os.Getenv("DEFAULT_TARGET"); defaultTarget != "" {
-		proxy.AddTarget("default", defaultTarget)
+		if defaultTarget := os.Getenv("DEFAULT_TARGET"); defaultTarget != "" {
+			proxy.AddTarget("default", defaultTarget)
+		}
 	}
 
 	http.HandleFunc("/capture/save", func(w http.ResponseWriter, r *http.Request) {
