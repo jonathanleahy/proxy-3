@@ -2,12 +2,12 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -32,13 +32,23 @@ type CaptureProxy struct {
 	captures    []CapturedRoute
 	mu          sync.Mutex
 	outputDir   string
+	client      *http.Client
 }
 
 func NewCaptureProxy(outputDir string) *CaptureProxy {
+	// Create HTTP client that handles HTTPS
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	
 	return &CaptureProxy{
 		targetHosts: make(map[string]*url.URL),
 		captures:    make([]CapturedRoute, 0),
 		outputDir:   outputDir,
+		client: &http.Client{
+			Transport: tr,
+			Timeout:   30 * time.Second,
+		},
 	}
 }
 
@@ -53,138 +63,122 @@ func (cp *CaptureProxy) AddTarget(name string, targetURL string) error {
 }
 
 func (cp *CaptureProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var targetURL *url.URL
-	var serviceName string
-
-	// Check if we're in transparent mode
 	transparentMode := os.Getenv("TRANSPARENT_MODE") == "true"
 	
+	var targetURL string
+	var serviceName string
+	
 	if transparentMode {
-		// In transparent mode, extract the actual destination from the request
-		// The request URL contains the full destination
-		if r.URL.Scheme == "" {
-			r.URL.Scheme = "http"
-		}
-		if r.URL.Host == "" {
-			// For CONNECT method or when Host is in header
-			r.URL.Host = r.Host
-		}
-		
-		// Build target URL from the request
-		targetURL = &url.URL{
-			Scheme: r.URL.Scheme,
-			Host:   r.URL.Host,
-			Path:   "/",
-		}
-		
-		// If it's a proxy request, the full URL is already in r.URL
-		if r.URL.Scheme != "" && r.URL.Host != "" {
-			targetURL = r.URL
-		}
-		
-		serviceName = r.URL.Host
-		log.Printf("Transparent proxy: forwarding to %s%s", r.URL.Host, r.URL.Path)
-	} else {
-		// Original behavior - use configured targets
-		for name, target := range cp.targetHosts {
-			if strings.Contains(r.Host, name) || strings.Contains(r.URL.Path, "/"+name+"/") {
-				targetURL = target
-				serviceName = name
-				break
-			}
-		}
-
-		if targetURL == nil {
-			targetURL = cp.targetHosts["default"]
-			serviceName = "default"
-		}
-
-		if targetURL == nil {
-			http.Error(w, "No target configured", http.StatusBadGateway)
+		// In transparent mode, forward to the actual destination
+		if r.URL.IsAbs() {
+			// Absolute URL (proxy request)
+			targetURL = r.URL.String()
+			serviceName = r.URL.Host
+		} else {
+			// Relative URL - shouldn't happen in proxy mode
+			http.Error(w, "Invalid proxy request", http.StatusBadRequest)
 			return
 		}
+		
+		log.Printf("Transparent proxy: %s %s", r.Method, targetURL)
+	} else {
+		// Original configured mode
+		http.Error(w, "Non-transparent mode not supported in this version", http.StatusBadRequest)
+		return
 	}
-
-	proxy := httputil.NewSingleHostReverseProxy(targetURL)
 	
-	originalDirector := proxy.Director
-	proxy.Director = func(req *http.Request) {
-		if transparentMode {
-			// In transparent mode, preserve the original request
-			req.URL = r.URL
-			req.Host = r.Host
+	// Create new request to forward
+	proxyReq, err := http.NewRequest(r.Method, targetURL, r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	
+	// Copy headers from original request
+	for key, values := range r.Header {
+		for _, value := range values {
+			proxyReq.Header.Add(key, value)
+		}
+	}
+	
+	// Remove hop-by-hop headers
+	proxyReq.Header.Del("Proxy-Connection")
+	proxyReq.Header.Del("Proxy-Authenticate")
+	proxyReq.Header.Del("Proxy-Authorization")
+	proxyReq.Header.Del("Connection")
+	
+	// Capture request body if present
+	var requestBody interface{}
+	if r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH" {
+		if r.Body != nil {
+			bodyBytes, _ := io.ReadAll(r.Body)
+			r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+			proxyReq.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 			
-			// Ensure scheme is set
-			if req.URL.Scheme == "" {
-				if req.TLS != nil {
-					req.URL.Scheme = "https"
-				} else {
-					req.URL.Scheme = "http"
-				}
+			var reqBody interface{}
+			if json.Unmarshal(bodyBytes, &reqBody) == nil {
+				requestBody = reqBody
 			}
-		} else {
-			// Original behavior for configured targets
-			originalDirector(req)
-			req.Host = targetURL.Host
-			req.URL.Scheme = targetURL.Scheme
-			req.URL.Host = targetURL.Host
-			
-			if strings.HasPrefix(req.URL.Path, "/"+serviceName+"/") {
-				req.URL.Path = strings.TrimPrefix(req.URL.Path, "/"+serviceName)
+		}
+	}
+	
+	// Make the request
+	resp, err := cp.client.Do(proxyReq)
+	if err != nil {
+		log.Printf("Error forwarding request: %v", err)
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+	
+	// Read response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	
+	// Try to parse as JSON for capture
+	var jsonBody interface{}
+	if err := json.Unmarshal(respBody, &jsonBody); err == nil {
+		// Capture the response
+		headers := make(map[string]string)
+		for key, values := range resp.Header {
+			if len(values) > 0 {
+				headers[key] = values[0]
 			}
 		}
 		
-		log.Printf("Proxying %s %s to %s", req.Method, req.URL.Path, req.URL.Host)
-	}
-
-	proxy.ModifyResponse = func(resp *http.Response) error {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return err
+		captured := CapturedRoute{
+			Method:      r.Method,
+			Path:        normalizePathForTemplate(r.URL.Path),
+			Status:      resp.StatusCode,
+			Response:    jsonBody,
+			Headers:     headers,
+			Description: fmt.Sprintf("Captured from %s", serviceName),
+			CapturedAt:  time.Now(),
+			RequestBody: requestBody,
 		}
-		resp.Body = io.NopCloser(bytes.NewBuffer(body))
-
-		var jsonBody interface{}
-		if err := json.Unmarshal(body, &jsonBody); err == nil {
-			headers := make(map[string]string)
-			for key, values := range resp.Header {
-				if key == "Content-Type" || key == "Cache-Control" {
-					headers[key] = values[0]
-				}
-			}
-
-			captured := CapturedRoute{
-				Method:      r.Method,
-				Path:        normalizePathForTemplate(r.URL.Path),
-				Status:      resp.StatusCode,
-				Response:    jsonBody,
-				Headers:     headers,
-				Description: fmt.Sprintf("Captured from %s", serviceName),
-				CapturedAt:  time.Now(),
-			}
-
-			if r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH" {
-				if r.Body != nil {
-					bodyBytes, _ := io.ReadAll(r.Body)
-					r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-					var reqBody interface{}
-					if json.Unmarshal(bodyBytes, &reqBody) == nil {
-						captured.RequestBody = reqBody
-					}
-				}
-			}
-
-			cp.mu.Lock()
-			cp.captures = append(cp.captures, captured)
-			cp.mu.Unlock()
-
-			log.Printf("Captured: %s %s -> %d", r.Method, r.URL.Path, resp.StatusCode)
-		}
-
-		return nil
+		
+		cp.mu.Lock()
+		cp.captures = append(cp.captures, captured)
+		cp.mu.Unlock()
+		
+		log.Printf("✅ Captured: %s %s -> %d", r.Method, r.URL.Path, resp.StatusCode)
 	}
-
-	proxy.ServeHTTP(w, r)
+	
+	// Copy response headers
+	for key, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+	
+	// Write status code
+	w.WriteHeader(resp.StatusCode)
+	
+	// Write response body
+	w.Write(respBody)
 }
 
 func normalizePathForTemplate(path string) string {
@@ -281,6 +275,10 @@ func extractServiceName(path string) string {
 		return "statements"
 	} else if strings.Contains(path, "/authorizations") {
 		return "authorizations"
+	} else if strings.Contains(path, "/users") {
+		return "users"
+	} else if strings.Contains(path, "/posts") {
+		return "posts"
 	}
 	return "misc"
 }
