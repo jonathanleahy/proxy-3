@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Transparent MITM proxy - no certificates needed!
   transparent-proxy:

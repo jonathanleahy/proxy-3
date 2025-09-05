@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Mock Server - Serves recorded API responses
   mock-server:
