@@ -91,10 +91,12 @@ case "$ACTION" in
     docker compose -f docker-compose-transparent.yml exec app pkill main 2>/dev/null || true
     sleep 1
     
-    # Run the server in detached mode
-    docker compose -f docker-compose-transparent.yml exec -d app sh -c "$APP_CMD"
+    # Run the server in detached mode with log capture
+    LOG_FILE="/proxy/app.log"
+    docker compose -f docker-compose-transparent.yml exec -d app sh -c "$APP_CMD > $LOG_FILE 2>&1"
     
     echo -e "${GREEN}✅ Server started in background${NC}"
+    echo -e "${BLUE}📄 Logs are being written to: $LOG_FILE${NC}"
     echo ""
     echo "Testing server connection..."
     sleep 2
@@ -107,9 +109,13 @@ case "$ACTION" in
       echo "  • http://localhost:8080/"
       echo "  • http://localhost:8080/api/health"
       echo "  • http://localhost:8080/api/test"
+      echo ""
+      echo "To view logs:"
+      echo "  $0 app-logs          # Show recent logs"
+      echo "  $0 app-logs -f       # Follow logs (live)"
     else
       echo -e "${YELLOW}⚠️  Server may still be starting up...${NC}"
-      echo "Check logs with: docker compose -f docker-compose-transparent.yml logs app"
+      echo "To view logs: $0 app-logs"
     fi
     ;;
     
@@ -123,6 +129,20 @@ case "$ACTION" in
     
   logs)
     docker compose -f docker-compose-transparent.yml logs -f
+    ;;
+    
+  app-logs)
+    # View application logs
+    LOG_FILE="/proxy/app.log"
+    FOLLOW_FLAG=${2:-}
+    
+    if [ "$FOLLOW_FLAG" == "-f" ]; then
+      echo -e "${YELLOW}Following application logs (Ctrl+C to stop)...${NC}"
+      docker compose -f docker-compose-transparent.yml exec app tail -f $LOG_FILE
+    else
+      echo -e "${YELLOW}Recent application logs:${NC}"
+      docker compose -f docker-compose-transparent.yml exec app sh -c "if [ -f $LOG_FILE ]; then tail -n 50 $LOG_FILE; else echo 'No logs found. Start the server with: $0 server'; fi"
+    fi
     ;;
     
   stop)
@@ -152,20 +172,22 @@ case "$ACTION" in
     ;;
     
   *)
-    echo "Usage: $0 {start|server|run|exec|logs|stop|test}"
+    echo "Usage: $0 {start|server|run|exec|logs|app-logs|stop|test}"
     echo ""
     echo "  start         - Start the transparent capture system"
     echo "  server [cmd]  - Start server (default: ./main) in background"
     echo "  run 'cmd'     - Run a command with transparent capture"
     echo "  exec          - Open shell in app container"
-    echo "  logs          - Show container logs"
+    echo "  logs          - Show all container logs"
+    echo "  app-logs [-f] - Show application logs (add -f to follow)"
     echo "  stop          - Stop the system"
     echo "  test          - Run test HTTPS requests"
     echo ""
     echo "Examples:"
     echo "  $0 start                    # Start the system"
     echo "  $0 server                   # Start ./main server"
-    echo "  $0 server 'cd /proxy && ./myapp'  # Start custom server"
+    echo "  $0 app-logs                 # View app logs"
+    echo "  $0 app-logs -f              # Follow app logs (live)"
     echo "  $0 run 'curl https://api.github.com'  # Run one-off command"
     exit 1
     ;;
