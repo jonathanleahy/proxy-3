@@ -1,45 +1,112 @@
-# Mock API Server
+# Transparent HTTPS Proxy System
 
-A dynamic REST API simulator that captures and replays HTTP traffic - perfect for testing without external dependencies.
+A Docker-based transparent HTTPS proxy that captures all HTTP/HTTPS traffic without requiring certificates or proxy configuration. Perfect for API development, testing, and debugging.
 
 ## Features
 
-- 🔍 **Transparent Proxy Mode**: Automatically detect and record ALL API calls
-- 🔄 **Dynamic Route Loading**: Define routes and responses in JSON files
-- 🔥 **Hot Reload**: Automatically reloads when JSON files change
-- 📸 **Smart Capture**: Record real API responses for use as mocks
-- 🎯 **Path Parameters**: Support for dynamic path segments like `/accounts/{id}`
-- 🎭 **Record & Replay**: Capture once, replay forever
-- ⏱️ **Response Delays**: Simulate network latency
-- 🚀 **Zero Configuration**: Works out of the box with sensible defaults
+- 🔐 **No certificates needed** - Transparent interception using iptables
+- 🚀 **Zero configuration** - Works out of the box
+- 📊 **Web viewer** - View captured requests at http://localhost:8090/viewer
+- 🔄 **Hot reload** - Mock server auto-reloads when config changes
+- 🏗️ **Multi-architecture** - Supports x86_64, ARM64, and more
+- 🐳 **Docker-based** - Consistent environment across all platforms
 
-## 🚀 Quick Start → [QUICKSTART.md](QUICKSTART.md)
+## Quick Start
 
-### Option 1: Transparent HTTPS Capture (No Certificates!)
+### 1. Clone and Setup (First Time Only)
+
 ```bash
-# Captures ALL HTTPS traffic without any certificates or proxy settings
-./transparent-capture.sh start
-./transparent-capture.sh run 'your-app'
-# View captures at http://localhost:8090/viewer
+git clone https://github.com/jonathanleahy/proxy-3.git
+cd proxy-3
+./setup.sh  # Builds binaries and Docker images
 ```
 
-### Option 2: Simple HTTP Capture
+### 2. Start Everything
+
 ```bash
-# Basic HTTP/HTTPS capture (HTTPS connections only, not content)
-go run cmd/capture/main.go
-# In another terminal:
-export HTTP_PROXY=http://localhost:8091
-./your-app
+# Option A: Start system and server together
+./transparent-capture.sh start --with-server
+
+# Option B: Start separately
+./transparent-capture.sh start   # Start containers
+./transparent-capture.sh server  # Start REST server
 ```
 
-### Option 3: Full HTTPS with Certificates
+### 3. Test It Works
+
 ```bash
-# Full HTTPS decryption with auto-generated certificates
-./start-https-capture.sh
-# Follow the export commands it shows you
+curl http://localhost:8080/api/health
+# Returns: {"status":"healthy"}
 ```
 
-See [QUICKSTART.md](QUICKSTART.md) for detailed instructions.
+## How It Works
+
+The system uses three Docker containers:
+
+1. **transparent-proxy** - Runs mitmproxy with iptables rules to intercept traffic
+2. **app** - Your application container (shares network with proxy)
+3. **viewer** - Web interface to view captured requests
+
+The app container shares the network namespace with the proxy container, so all outbound HTTPS traffic is automatically captured without any proxy settings or certificates.
+
+## Common Commands
+
+### Starting and Stopping
+
+```bash
+./transparent-capture.sh start           # Start containers
+./transparent-capture.sh start --with-server  # Start with server
+./transparent-capture.sh server          # Start REST server
+./transparent-capture.sh stop-server     # Stop server only
+./transparent-capture.sh stop            # Stop everything
+```
+
+### Running Applications
+
+```bash
+# Run the main server
+./transparent-capture.sh run './main'
+
+# Run any command with transparent capture
+./transparent-capture.sh run 'curl https://api.github.com'
+
+# Open shell in container
+./transparent-capture.sh exec
+```
+
+### Monitoring
+
+```bash
+./transparent-capture.sh app-logs        # View server logs
+./transparent-capture.sh app-logs -f     # Follow logs live
+./transparent-capture.sh logs            # View all container logs
+```
+
+### Testing
+
+```bash
+./test-connection.sh                     # Run diagnostic test
+curl http://localhost:8080/api/health    # Quick health check
+```
+
+## Ports
+
+- **8080** - Your REST API server
+- **8084** - mitmproxy (internal)
+- **8090** - Web viewer for captured requests
+
+## Building for Different Architectures
+
+The `build.sh` script automatically detects your architecture:
+
+```bash
+./build.sh  # Builds for your current architecture
+```
+
+Supported architectures:
+- x86_64 (amd64)
+- ARM64 (Apple Silicon, AWS Graviton)
+- ARMv7
 
 ## Configuration
 

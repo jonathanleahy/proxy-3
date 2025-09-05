@@ -82,7 +82,7 @@ case "$ACTION" in
     
     # Run the command inside the app container - stays attached
     # This is perfect for servers where you want to see live output
-    docker compose -f docker-compose-transparent.yml exec app sh -c "$APP_CMD"
+    docker compose -f docker-compose-transparent.yml exec app sh -c "cd /proxy && $APP_CMD"
     ;;
     
   server)
