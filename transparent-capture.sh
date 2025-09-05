@@ -47,12 +47,23 @@ case "$ACTION" in
     echo "📊 View captures at: http://localhost:${VIEWER_PORT:-8090}/viewer"
     echo "📁 Captures saved to: ./captured/"
     echo ""
+    
+    # Auto-start server if requested
+    if [ "$2" == "--with-server" ]; then
+      echo -e "${YELLOW}Auto-starting server...${NC}"
+      sleep 2
+      docker compose -f docker-compose-transparent.yml exec -d app sh -c "cd /proxy && ./main > /proxy/app.log 2>&1"
+      echo -e "${GREEN}✅ Server auto-started on port 8080${NC}"
+      echo ""
+    fi
+    
     echo "To run your app in the transparent proxy environment:"
     echo -e "${YELLOW}./transparent-capture.sh run 'your-app-command'${NC}"
     echo ""
     echo "Example:"
     echo -e "${YELLOW}./transparent-capture.sh run 'curl https://api.github.com'${NC}"
     echo ""
+    echo "To start the server: ./transparent-capture.sh server"
     echo "To see logs: docker compose -f docker-compose-transparent.yml logs -f"
     echo "To stop: ./transparent-capture.sh stop"
     ;;
@@ -186,18 +197,19 @@ case "$ACTION" in
   *)
     echo "Usage: $0 {start|server|stop-server|run|exec|logs|app-logs|stop|test}"
     echo ""
-    echo "  start         - Start the transparent capture system"
-    echo "  server [cmd]  - Start server (default: ./main) in background"
-    echo "  stop-server   - Stop the running server"
-    echo "  run 'cmd'     - Run a command with transparent capture"
-    echo "  exec          - Open shell in app container"
-    echo "  logs          - Show all container logs"
-    echo "  app-logs [-f] - Show application logs (add -f to follow)"
-    echo "  stop          - Stop the entire system"
-    echo "  test          - Run test HTTPS requests"
+    echo "  start [--with-server] - Start the transparent capture system (optionally auto-start server)"
+    echo "  server [cmd]          - Start server (default: ./main) in background"
+    echo "  stop-server           - Stop the running server"
+    echo "  run 'cmd'             - Run a command with transparent capture"
+    echo "  exec                  - Open shell in app container"
+    echo "  logs                  - Show all container logs"
+    echo "  app-logs [-f]         - Show application logs (add -f to follow)"
+    echo "  stop                  - Stop the entire system"
+    echo "  test                  - Run test HTTPS requests"
     echo ""
     echo "Examples:"
     echo "  $0 start                    # Start the system"
+    echo "  $0 start --with-server      # Start system and auto-start server"
     echo "  $0 server                   # Start ./main server"
     echo "  $0 stop-server              # Stop the server"
     echo "  $0 app-logs                 # View app logs"
