@@ -322,9 +322,14 @@ func main() {
 
 	go server.watchConfigFiles()
 
-	log.Printf("Mock API Server starting on port %s", port)
-	log.Printf("Loading route configurations from: %s", configPath)
-	log.Printf("Place your route JSON files in the configs directory")
+	log.Printf("🚀 Mock API Server starting on port %s", port)
+	log.Printf("📁 Loading route configurations from: %s", configPath)
+	log.Printf("📝 Place your route JSON files in the configs directory")
+	log.Printf("")
+	log.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	log.Printf("📊 Web Viewer: http://localhost:%s/viewer", port)
+	log.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	log.Printf("")
 	
 	if err := server.echo.Start(":" + port); err != nil {
 		log.Fatal(err)
