@@ -1,6 +1,10 @@
 # Binary executables
+main
 mock-server
 capture-proxy
+
+# Log files
+app.log
 
 # Captured data directory
 captured/
