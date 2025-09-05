@@ -44,6 +44,23 @@ services:
     profiles:
       - capture
 
+  # MITM Proxy - Full HTTPS content capture with automatic certificates
+  mitm-proxy:
+    image: mitmproxy/mitmproxy:latest
+    command: mitmdump -s /scripts/mitm_capture.py --set confdir=/home/mitmproxy/.mitmproxy -p 8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./captured:/captured
+      - mitmproxy-certs:/home/mitmproxy/.mitmproxy
+    environment:
+      - OUTPUT_DIR=/captured
+    networks:
+      - api-network
+    profiles:
+      - mitm
+
   # Example App - Demonstrates proxy usage
   example-app:
     build:
@@ -67,3 +84,6 @@ services:
 networks:
   api-network:
     driver: bridge
+
+volumes:
+  mitmproxy-certs:

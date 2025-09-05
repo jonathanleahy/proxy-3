@@ -8,8 +8,10 @@ This is a dynamic mock API server for the Firecracker API project, built in Go u
 - Dynamic route loading from JSON configuration files
 - Hot reload when config files change using fsnotify
 - API response capture proxy for recording real API responses
+- **NEW**: MITM proxy for full HTTPS content capture using Docker/mitmproxy
 - Support for path parameters and response templating
 - Automatic path normalization (IDs become `{id}` placeholders)
+- Works on restricted machines without admin access (using environment variables)
 
 ## Development Commands
 
@@ -19,6 +21,12 @@ go run cmd/main.go
 
 # Run capture proxy for recording real API responses (port 8091)
 go run cmd/capture/main.go
+
+# Run MITM proxy for full HTTPS capture (port 8080)
+docker-compose --profile mitm up
+
+# Extract CA certificate for MITM (no admin needed)
+./scripts/get-mitm-cert.sh
 
 # Quick capture setup with script
 ./capture-real-apis.sh intercept  # Creates run-capture-proxy.sh
@@ -52,6 +60,14 @@ docker run -p 8090:8090 -v $(pwd)/configs:/app/configs mock-api-server
    - Automatically normalizes paths (IDs become `{id}` placeholders)
    - Groups captures by service (accounts, wallet, ledger, etc.)
    - Outputs JSON files compatible with mock server format
+   - Supports HTTPS via CONNECT tunneling (can't decrypt content)
+
+3. **MITM Proxy** (Docker with mitmproxy)
+   - Full HTTPS content decryption and capture
+   - Automatic certificate generation
+   - Works without admin rights (using environment variables)
+   - Python script (`scripts/mitm_capture.py`) for custom capture logic
+   - Same output format as capture proxy for compatibility
 
 ### Key Files
 - `configs/*.json` - Route definition files (hot-reloaded)
@@ -90,7 +106,14 @@ Path parameters use `{param}` syntax and are replaced with `{{param}}` in respon
 **Capture Proxy:**
 - `CAPTURE_PORT` - Proxy port (default: 8091)
 - `OUTPUT_DIR` - Capture output directory (default: ./captured)
+- `TRANSPARENT_MODE` - Enable transparent proxy mode (default: false)
 - `*_API_URL` - Real API endpoints to proxy (ACCOUNTS_API_URL, WALLET_API_URL, etc.)
+
+**MITM Proxy (for restricted environments):**
+- `SSL_CERT_FILE` - Path to CA certificate for HTTPS trust (no admin needed)
+- `REQUESTS_CA_BUNDLE` - Python requests library CA bundle
+- `NODE_EXTRA_CA_CERTS` - Node.js additional CA certificates
+- `HTTP_PROXY` / `HTTPS_PROXY` - Proxy settings for applications
 
 ## Capture Workflow
 

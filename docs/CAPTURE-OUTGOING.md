@@ -146,19 +146,41 @@ Trigger whatever functionality in your app makes external API calls.
 ### 6. Check the viewer
 You should now see the OUTGOING API calls from your app to external services.
 
-## HTTPS Support
+## HTTPS Support - Two Options
 
-The proxy now supports HTTPS through CONNECT tunneling:
+### Option 1: CONNECT Tunneling (Port 8091) - No Certificates Needed
+The basic proxy supports HTTPS through CONNECT tunneling:
 - ✅ **Works without certificates** - No SSL/TLS certificates needed
 - ✅ **Handles HTTPS traffic** - Establishes secure tunnels
 - ⚠️ **Cannot decrypt content** - Only logs that HTTPS connections were made
-- 💡 **For full HTTPS capture** - Would require MITM proxy with certificates
 
-### What gets captured for HTTPS:
+What gets captured:
 - The fact that an HTTPS connection was made
 - The destination host and port
 - Connection timing
 - NOT the actual request/response content (encrypted)
+
+### Option 2: MITM Proxy (Port 8080) - Full Content Capture
+For complete HTTPS inspection using mitmproxy in Docker:
+- ✅ **Full content capture** - Decrypts and captures everything
+- ✅ **No admin rights needed** - Use environment variables
+- ✅ **Automatic certificate generation** - Handled by mitmproxy
+- ⚠️ **Requires CA certificate trust** - But we provide easy methods
+
+**Quick Start:**
+```bash
+# Start MITM proxy
+docker-compose --profile mitm up
+
+# Get the CA certificate (no admin needed)
+./scripts/get-mitm-cert.sh
+
+# Use with your app (no admin needed)
+export SSL_CERT_FILE=$(pwd)/certs/mitmproxy-ca.pem
+HTTP_PROXY=http://localhost:8080 HTTPS_PROXY=http://localhost:8080 your-app
+```
+
+See [MITM-SETUP.md](./MITM-SETUP.md) for detailed instructions.
 
 ## Common Issues
 

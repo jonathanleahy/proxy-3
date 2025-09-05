@@ -191,6 +191,45 @@ Works with any language that respects HTTP_PROXY:
 - **Java**: Use `-Dhttp.proxyHost`
 - **Docker**: Use `-e HTTP_PROXY`
 
+## 🔐 MITM Proxy Mode - Full HTTPS Content Capture
+
+NEW! Capture and inspect **encrypted HTTPS content** using mitmproxy in Docker - perfect for restricted environments without admin access!
+
+### Quick Start (No Admin Required!)
+
+```bash
+# 1. Start MITM proxy with Docker
+docker-compose --profile mitm up
+
+# 2. Extract the CA certificate (one-time setup)
+./scripts/get-mitm-cert.sh
+
+# 3. Run your app with the CA certificate (no admin needed!)
+export SSL_CERT_FILE=$(pwd)/certs/mitmproxy-ca.pem
+export HTTP_PROXY=http://localhost:8080
+export HTTPS_PROXY=http://localhost:8080
+./your-app
+
+# Your HTTPS traffic is now fully captured and decrypted!
+```
+
+### What You Get with MITM
+- ✅ **Full HTTPS content** - Request/response bodies, even encrypted
+- ✅ **All headers** - Including cookies, auth tokens
+- ✅ **No admin required** - Uses environment variables
+- ✅ **Docker-based** - No system changes needed
+- ✅ **Same format** - Compatible with existing viewer and replay
+
+### Two Proxy Options
+| Feature | Port 8091 (CONNECT) | Port 8080 (MITM) |
+|---------|-------------------|------------------|
+| HTTPS Support | ✅ Yes | ✅ Yes |
+| See HTTPS Content | ❌ No | ✅ Yes (decrypted) |
+| Certificates | ❌ Not needed | ✅ Auto-generated |
+| Setup Complexity | Simple | Docker + CA cert |
+
+See [docs/MITM-SETUP.md](docs/MITM-SETUP.md) for detailed instructions.
+
 ## Project Structure
 
 ```
