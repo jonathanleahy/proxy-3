@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # Transparent MITM proxy - no certificates needed!
+  transparent-proxy:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mitmproxy
+    container_name: transparent-proxy
+    cap_add:
+      - NET_ADMIN  # Required for iptables
+      - NET_RAW    # Required for transparent proxy
+    volumes:
+      - ./captured:/captured
+      - ./scripts:/scripts:ro
+    networks:
+      capture-net:
+        ipv4_address: 172.20.0.2
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.disable_ipv6=1
+
+  # Your application container
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+    container_name: app
+    depends_on:
+      - transparent-proxy
+    # Key setting: use proxy container for network
+    network_mode: "service:transparent-proxy"
+    volumes:
+      - ./:/app
+    environment:
+      # No proxy environment variables needed!
+      # No certificates needed!
+      # Traffic is transparently intercepted
+      TARGET_API: "https://api.github.com"
+    # Override this with your actual app command
+    command: |
+      sh -c "
+      echo '🚀 App starting - all HTTPS traffic will be transparently captured!'
+      echo 'No certificates or proxy settings needed!'
+      while true; do
+        echo '📡 Making HTTPS request (will be captured transparently)...'
+        curl -s https://api.github.com/users/github | head -5
+        curl -s https://httpbin.org/json | head -5
+        sleep 10
+      done
+      "
+
+  # Mock server for viewing captures
+  viewer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mock-viewer
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./configs:/app/configs
+      - ./captured:/app/captured
+      - ./viewer.html:/app/viewer.html:ro
+    environment:
+      - PORT=8090
+    networks:
+      capture-net:
+        ipv4_address: 172.20.0.3
+
+networks:
+  capture-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24

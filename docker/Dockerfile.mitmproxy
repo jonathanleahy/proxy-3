@@ -1,0 +1,25 @@
+# Dockerfile for mitmproxy with transparent mode
+FROM mitmproxy/mitmproxy:latest
+
+# Install iptables for transparent proxy setup
+USER root
+RUN apt-get update && \
+    apt-get install -y iptables iproute2 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy our capture script
+COPY scripts/mitm_capture.py /scripts/mitm_capture.py
+COPY docker/transparent-entry.sh /transparent-entry.sh
+
+RUN chmod +x /transparent-entry.sh
+
+# Create captured directory
+RUN mkdir -p /captured && chown mitmproxy:mitmproxy /captured
+
+# Expose ports
+EXPOSE 8080 8081
+
+# Run as root for iptables (required for transparent mode)
+USER root
+
+ENTRYPOINT ["/transparent-entry.sh"]
