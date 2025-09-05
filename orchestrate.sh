@@ -72,6 +72,11 @@ start_record_mode() {
     
     sleep 2
     
+    # Also start mock server for the viewer
+    print_msg "Starting mock server with viewer on port $MOCK_PORT..." "$BLUE"
+    PORT=$MOCK_PORT CONFIG_PATH=$CONFIGS_DIR go run cmd/main.go &
+    sleep 2
+    
     # Set proxy environment variables for ALL HTTP traffic
     export HTTP_PROXY="http://localhost:$PROXY_PORT"
     export HTTPS_PROXY="http://localhost:$PROXY_PORT"
@@ -100,6 +105,12 @@ start_record_mode() {
     fi
     
     print_msg "\n✅ TRANSPARENT RECORD MODE ACTIVE" "$GREEN"
+    print_msg "" "$YELLOW"
+    print_msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" "$YELLOW"
+    print_msg "📸 Capture Proxy: http://localhost:$PROXY_PORT (Recording)" "$GREEN"
+    print_msg "📊 Web Viewer: http://localhost:$MOCK_PORT/viewer" "$GREEN"
+    print_msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" "$YELLOW"
+    print_msg "" "$BLUE"
     print_msg "The proxy will:" "$GREEN"
     echo "  • Automatically detect API destinations"
     echo "  • Record responses from ALL external APIs"
@@ -108,10 +119,8 @@ start_record_mode() {
     print_msg "\nYou can now:" "$YELLOW"
     echo "  • Make requests to ANY external API"
     echo "  • Use your app normally"
+    echo "  • View captures in real-time at the web viewer"
     echo "  • Everything will be captured automatically"
-    print_msg "" "$BLUE"
-    print_msg "💡 TIP: To view captured data later, start REPLAY mode (option 2)" "$BLUE"
-    print_msg "        which includes the web viewer at http://localhost:8090/viewer" "$BLUE"
     echo ""
     echo "Example test:"
     echo "  curl -x http://localhost:$PROXY_PORT https://api.github.com/users/github"
@@ -249,6 +258,7 @@ check_status() {
     # Check mock server
     if curl -s http://localhost:$MOCK_PORT >/dev/null 2>&1; then
         print_msg "✅ Mock Server: RUNNING on port $MOCK_PORT" "$GREEN"
+        print_msg "   📊 Viewer: http://localhost:$MOCK_PORT/viewer" "$BLUE"
     else
         print_msg "❌ Mock Server: NOT RUNNING" "$RED"
     fi
