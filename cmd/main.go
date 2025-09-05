@@ -56,9 +56,12 @@ func NewMockServer(configPath string) *MockServer {
 	// API endpoints for viewer
 	e.GET("/api/files/:dir", ms.handleListFiles)
 	e.GET("/api/file/:dir/*", ms.handleGetFile)
-	e.Static("/", ".")
 	
-	// Mock routes handler (must be last)
+	// Serve viewer HTML explicitly before catch-all
+	e.GET("/viewer.html", ms.serveViewer)
+	e.GET("/viewer", ms.serveViewer)
+	
+	// Mock routes handler (must be last - catches all other routes)
 	e.Any("/*", ms.handleRequest)
 
 	return ms
@@ -162,6 +165,10 @@ func (ms *MockServer) handleGetFile(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, content)
+}
+
+func (ms *MockServer) serveViewer(c echo.Context) error {
+	return c.File("viewer.html")
 }
 
 func (ms *MockServer) handleRequest(c echo.Context) error {
