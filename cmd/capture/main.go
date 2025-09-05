@@ -350,6 +350,20 @@ func main() {
 		json.NewEncoder(w).Encode(response)
 	})
 
+	http.HandleFunc("/capture/live", func(w http.ResponseWriter, r *http.Request) {
+		proxy.mu.Lock()
+		captures := make([]CapturedRoute, len(proxy.captures))
+		copy(captures, proxy.captures)
+		proxy.mu.Unlock()
+		
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"routes": captures,
+			"count":  len(captures),
+		})
+	})
+
 	http.Handle("/", proxy)
 
 	log.Printf("Capture Proxy starting on port %s", port)
