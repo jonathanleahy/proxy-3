@@ -4,7 +4,7 @@ FROM mitmproxy/mitmproxy:latest
 # Install iptables for transparent proxy setup
 USER root
 RUN apt-get update && \
-    apt-get install -y iptables iproute2 && \
+    apt-get install -y iptables iproute2 ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy our capture script

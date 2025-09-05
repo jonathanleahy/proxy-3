@@ -4,7 +4,7 @@ FROM golang:1.21-alpine AS builder
 WORKDIR /app
 
 # Install dependencies for network debugging
-RUN apk add --no-cache curl wget netcat-openbsd
+RUN apk update && apk add --no-cache curl wget netcat-openbsd
 
 # Copy go mod files
 COPY go.mod go.sum ./
@@ -20,7 +20,7 @@ RUN go build -o test-app cmd/test-outgoing/main.go 2>/dev/null || \
 # Runtime stage
 FROM alpine:latest
 
-RUN apk add --no-cache curl wget netcat-openbsd bash
+RUN apk update && apk add --no-cache curl wget netcat-openbsd bash
 
 WORKDIR /app
 

@@ -11,7 +11,7 @@ RUN go build -o capture-proxy cmd/capture/main.go
 
 FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates
+RUN apk update && apk --no-cache add curl
 
 WORKDIR /app
 
