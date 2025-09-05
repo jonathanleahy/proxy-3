@@ -23,9 +23,11 @@ case "$ACTION" in
   start)
     echo -e "\n${YELLOW}Starting transparent capture system...${NC}"
     
-    # Clean up any existing containers
-    echo "Cleaning up old containers..."
+    # Clean up any existing containers and networks
+    echo "Cleaning up old containers and networks..."
     docker compose -f docker-compose-transparent.yml down 2>/dev/null || true
+    # Also remove any orphaned networks
+    docker network rm proxy-3_capture-net 2>/dev/null || true
     
     # Build images
     echo -e "\n${BLUE}Building Docker images...${NC}"
