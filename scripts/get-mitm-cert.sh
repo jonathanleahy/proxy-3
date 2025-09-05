@@ -24,13 +24,23 @@ mkdir -p certs
 
 # Extract the CA certificate
 echo "Extracting CA certificate..."
-docker run --rm -v proxy-3_mitmproxy-certs:/certs:ro -v $(pwd)/certs:/output alpine \
-    sh -c "cp /certs/mitmproxy-ca-cert.pem /output/mitmproxy-ca.pem 2>/dev/null || echo 'Waiting for cert...'"
 
-# Try with docker compose volume name format
-if [ ! -f "certs/mitmproxy-ca.pem" ]; then
-    docker run --rm -v $(basename $(pwd))_mitmproxy-certs:/certs:ro -v $(pwd)/certs:/output alpine \
-        sh -c "cp /certs/mitmproxy-ca-cert.pem /output/mitmproxy-ca.pem"
+# First, check if container is running and exec into it
+CONTAINER_ID=$(docker ps -q -f "name=mitm-proxy")
+if [ -n "$CONTAINER_ID" ]; then
+    echo "Found running mitmproxy container, extracting certificate..."
+    docker cp ${CONTAINER_ID}:/home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem certs/mitmproxy-ca.pem 2>/dev/null
+else
+    # Try extracting from volume
+    echo "Container not running, trying to extract from volume..."
+    docker run --rm -v proxy-3_mitmproxy-certs:/certs:ro -v $(pwd)/certs:/output busybox \
+        sh -c "cp /certs/mitmproxy-ca-cert.pem /output/mitmproxy-ca.pem 2>/dev/null || echo 'Cert not found in volume'"
+    
+    # Try with different volume name
+    if [ ! -f "certs/mitmproxy-ca.pem" ]; then
+        docker run --rm -v $(basename $(pwd))_mitmproxy-certs:/certs:ro -v $(pwd)/certs:/output busybox \
+            sh -c "cp /certs/mitmproxy-ca-cert.pem /output/mitmproxy-ca.pem 2>/dev/null"
+    fi
 fi
 
 if [ -f "certs/mitmproxy-ca.pem" ]; then
