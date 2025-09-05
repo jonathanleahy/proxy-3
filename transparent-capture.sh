@@ -151,6 +151,12 @@ case "$ACTION" in
     fi
     ;;
     
+  stop-server)
+    echo -e "\n${YELLOW}Stopping the application server...${NC}"
+    docker compose -f docker-compose-transparent.yml exec app pkill main 2>/dev/null || true
+    echo -e "${GREEN}✅ Server stopped${NC}"
+    ;;
+    
   stop)
     echo -e "\n${YELLOW}Stopping transparent capture system...${NC}"
     docker compose -f docker-compose-transparent.yml down
@@ -178,20 +184,22 @@ case "$ACTION" in
     ;;
     
   *)
-    echo "Usage: $0 {start|server|run|exec|logs|app-logs|stop|test}"
+    echo "Usage: $0 {start|server|stop-server|run|exec|logs|app-logs|stop|test}"
     echo ""
     echo "  start         - Start the transparent capture system"
     echo "  server [cmd]  - Start server (default: ./main) in background"
+    echo "  stop-server   - Stop the running server"
     echo "  run 'cmd'     - Run a command with transparent capture"
     echo "  exec          - Open shell in app container"
     echo "  logs          - Show all container logs"
     echo "  app-logs [-f] - Show application logs (add -f to follow)"
-    echo "  stop          - Stop the system"
+    echo "  stop          - Stop the entire system"
     echo "  test          - Run test HTTPS requests"
     echo ""
     echo "Examples:"
     echo "  $0 start                    # Start the system"
     echo "  $0 server                   # Start ./main server"
+    echo "  $0 stop-server              # Stop the server"
     echo "  $0 app-logs                 # View app logs"
     echo "  $0 app-logs -f              # Follow app logs (live)"
     echo "  $0 run 'curl https://api.github.com'  # Run one-off command"
