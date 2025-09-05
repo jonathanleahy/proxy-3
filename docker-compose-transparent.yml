@@ -32,12 +32,15 @@ services:
     network_mode: "service:transparent-proxy"
     volumes:
       - ./:/proxy
-      - ~/:/home/user
+      - ${HOME}:/home/user
+      - ${HOME}:${HOME}
+    working_dir: ${HOME}
     environment:
       # No proxy environment variables needed!
       # No certificates needed!
       # Traffic is transparently intercepted
       TARGET_API: "https://api.github.com"
+      HOME: ${HOME}
     # Override this with your actual app command
     command: |
       sh -c "
