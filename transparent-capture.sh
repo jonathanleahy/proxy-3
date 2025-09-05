@@ -28,6 +28,10 @@ case "$ACTION" in
     docker compose -f docker-compose-transparent.yml down 2>/dev/null || true
     # Also remove any orphaned networks
     docker network rm proxy-3_capture-net 2>/dev/null || true
+    # Kill any process using port 8090
+    echo "Freeing up port 8090..."
+    lsof -ti:8090 | xargs kill -9 2>/dev/null || true
+    sleep 1
     
     # Build images
     echo -e "\n${BLUE}Building Docker images...${NC}"
@@ -40,7 +44,7 @@ case "$ACTION" in
     echo -e "\n${GREEN}✅ Transparent capture system is running!${NC}"
     echo -e "${GREEN}════════════════════════════════════════${NC}"
     echo ""
-    echo "📊 View captures at: http://localhost:8090/viewer"
+    echo "📊 View captures at: http://localhost:${VIEWER_PORT:-8090}/viewer"
     echo "📁 Captures saved to: ./captured/"
     echo ""
     echo "To run your app in the transparent proxy environment:"

@@ -58,7 +58,7 @@ services:
       dockerfile: Dockerfile
     container_name: mock-viewer
     ports:
-      - "8090:8090"
+      - "${VIEWER_PORT:-8090}:8090"
     volumes:
       - ./configs:/app/configs
       - ./captured:/app/captured
