@@ -31,7 +31,8 @@ services:
     # Key setting: use proxy container for network
     network_mode: "service:transparent-proxy"
     volumes:
-      - ./:/app
+      - ./:/proxy
+      - ~/:/home/user
     environment:
       # No proxy environment variables needed!
       # No certificates needed!

@@ -3,9 +3,6 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies for network debugging  
-RUN apk update && apk add --no-cache curl
-
 # Copy go mod files
 COPY go.mod go.sum ./
 RUN go mod download
@@ -16,10 +13,8 @@ COPY . .
 # Build the application (create empty file if doesn't exist)
 RUN go build -o test-app cmd/test-outgoing/main.go 2>/dev/null || touch test-app
 
-# Runtime stage
+# Runtime stage - minimal Alpine
 FROM alpine:latest
-
-RUN apk update && apk add --no-cache curl
 
 WORKDIR /app
 
