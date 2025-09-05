@@ -42,12 +42,14 @@ services:
       # Traffic is transparently intercepted
       TARGET_API: "https://api.github.com"
       HOME: ${HOME}
-    # Run the REST server on port 8080
+    # Keep container running, ready for your app
     command: |
       sh -c "
-      echo '🚀 REST server starting on port 8080...'
-      cd /proxy
-      go run rest-server.go
+      echo '🚀 App container ready for your commands...'
+      echo '📡 Run your app with: ./transparent-capture.sh run \"./main\"'
+      echo 'Waiting for commands...'
+      # Keep container alive
+      tail -f /dev/null
       "
 
   # Mock server for viewing captures
