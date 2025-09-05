@@ -67,8 +67,50 @@ case "$ACTION" in
     echo -e "${BLUE}Command: $APP_CMD${NC}"
     echo ""
     
-    # Run the command inside the app container
-    docker compose -f docker-compose-transparent.yml exec app sh -c "$APP_CMD"
+    # Run the command inside the app container in detached mode for servers
+    # Check if command ends with & to run in background
+    if [[ "$APP_CMD" == *"&"* ]]; then
+      docker compose -f docker-compose-transparent.yml exec -d app sh -c "$APP_CMD"
+      echo -e "${GREEN}✅ Server started in background${NC}"
+    else
+      docker compose -f docker-compose-transparent.yml exec app sh -c "$APP_CMD"
+    fi
+    ;;
+    
+  server)
+    if [ -z "$APP_CMD" ]; then
+      # Default to running ./main if no command specified
+      APP_CMD="cd /proxy && ./main"
+    fi
+    
+    echo -e "\n${YELLOW}Starting server with transparent HTTPS capture...${NC}"
+    echo -e "${BLUE}Command: $APP_CMD${NC}"
+    echo ""
+    
+    # Kill any existing instance first
+    docker compose -f docker-compose-transparent.yml exec app pkill main 2>/dev/null || true
+    sleep 1
+    
+    # Run the server in detached mode
+    docker compose -f docker-compose-transparent.yml exec -d app sh -c "$APP_CMD"
+    
+    echo -e "${GREEN}✅ Server started in background${NC}"
+    echo ""
+    echo "Testing server connection..."
+    sleep 2
+    
+    # Test if server is responding
+    if curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/health | grep -q "200"; then
+      echo -e "${GREEN}✅ Server is responding on port 8080${NC}"
+      echo ""
+      echo "Endpoints available:"
+      echo "  • http://localhost:8080/"
+      echo "  • http://localhost:8080/api/health"
+      echo "  • http://localhost:8080/api/test"
+    else
+      echo -e "${YELLOW}⚠️  Server may still be starting up...${NC}"
+      echo "Check logs with: docker compose -f docker-compose-transparent.yml logs app"
+    fi
     ;;
     
   exec)
@@ -110,14 +152,21 @@ case "$ACTION" in
     ;;
     
   *)
-    echo "Usage: $0 {start|run|exec|logs|stop|test}"
+    echo "Usage: $0 {start|server|run|exec|logs|stop|test}"
     echo ""
     echo "  start         - Start the transparent capture system"
+    echo "  server [cmd]  - Start server (default: ./main) in background"
     echo "  run 'cmd'     - Run a command with transparent capture"
     echo "  exec          - Open shell in app container"
     echo "  logs          - Show container logs"
     echo "  stop          - Stop the system"
     echo "  test          - Run test HTTPS requests"
+    echo ""
+    echo "Examples:"
+    echo "  $0 start                    # Start the system"
+    echo "  $0 server                   # Start ./main server"
+    echo "  $0 server 'cd /proxy && ./myapp'  # Start custom server"
+    echo "  $0 run 'curl https://api.github.com'  # Run one-off command"
     exit 1
     ;;
 esac
