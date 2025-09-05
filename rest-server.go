@@ -47,10 +47,11 @@ func main() {
 		json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
 	})
 
-	fmt.Println("🚀 REST server starting on :8080 (for external clients)")
+	fmt.Println("🚀 REST server starting on 0.0.0.0:8080 (for external clients)")
 	fmt.Println("📡 Outbound HTTPS requests will be transparently captured by mitmproxy on :8084") 
 	fmt.Println("🌐 External clients: curl http://localhost:8080/")
 	fmt.Println("✅ Port 8080 is now free for your application!")
 	
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	// Explicitly bind to all interfaces
+	log.Fatal(http.ListenAndServe("0.0.0.0:8080", nil))
 }
