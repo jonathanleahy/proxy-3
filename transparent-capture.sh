@@ -25,15 +25,15 @@ case "$ACTION" in
     
     # Clean up any existing containers
     echo "Cleaning up old containers..."
-    docker compose -f docker compose-transparent.yml down 2>/dev/null || true
+    docker compose -f docker-compose-transparent.yml down 2>/dev/null || true
     
     # Build images
     echo -e "\n${BLUE}Building Docker images...${NC}"
-    docker compose -f docker compose-transparent.yml build
+    docker compose -f docker-compose-transparent.yml build
     
     # Start the system
     echo -e "\n${BLUE}Starting containers...${NC}"
-    docker compose -f docker compose-transparent.yml up -d
+    docker compose -f docker-compose-transparent.yml up -d
     
     echo -e "\n${GREEN}✅ Transparent capture system is running!${NC}"
     echo -e "${GREEN}════════════════════════════════════════${NC}"
@@ -47,7 +47,7 @@ case "$ACTION" in
     echo "Example:"
     echo -e "${YELLOW}./transparent-capture.sh run 'curl https://api.github.com'${NC}"
     echo ""
-    echo "To see logs: docker compose -f docker compose-transparent.yml logs -f"
+    echo "To see logs: docker compose -f docker-compose-transparent.yml logs -f"
     echo "To stop: ./transparent-capture.sh stop"
     ;;
     
@@ -62,7 +62,7 @@ case "$ACTION" in
     echo ""
     
     # Run the command inside the app container
-    docker compose -f docker compose-transparent.yml exec app sh -c "$APP_CMD"
+    docker compose -f docker-compose-transparent.yml exec app sh -c "$APP_CMD"
     ;;
     
   exec)
@@ -70,16 +70,16 @@ case "$ACTION" in
     echo -e "\n${YELLOW}Opening shell in app container...${NC}"
     echo "All HTTPS traffic will be transparently captured!"
     echo ""
-    docker compose -f docker compose-transparent.yml exec app sh
+    docker compose -f docker-compose-transparent.yml exec app sh
     ;;
     
   logs)
-    docker compose -f docker compose-transparent.yml logs -f
+    docker compose -f docker-compose-transparent.yml logs -f
     ;;
     
   stop)
     echo -e "\n${YELLOW}Stopping transparent capture system...${NC}"
-    docker compose -f docker compose-transparent.yml down
+    docker compose -f docker-compose-transparent.yml down
     echo -e "${GREEN}✅ Stopped${NC}"
     ;;
     
@@ -89,7 +89,7 @@ case "$ACTION" in
     # Run some test requests
     echo "Making test HTTPS requests (will be captured transparently)..."
     
-    docker compose -f docker compose-transparent.yml exec app sh -c "
+    docker compose -f docker-compose-transparent.yml exec app sh -c "
       echo '1. GitHub API test:'
       curl -s https://api.github.com/users/github | head -3
       echo ''
