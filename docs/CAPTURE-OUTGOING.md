@@ -146,6 +146,20 @@ Trigger whatever functionality in your app makes external API calls.
 ### 6. Check the viewer
 You should now see the OUTGOING API calls from your app to external services.
 
+## HTTPS Support
+
+The proxy now supports HTTPS through CONNECT tunneling:
+- ✅ **Works without certificates** - No SSL/TLS certificates needed
+- ✅ **Handles HTTPS traffic** - Establishes secure tunnels
+- ⚠️ **Cannot decrypt content** - Only logs that HTTPS connections were made
+- 💡 **For full HTTPS capture** - Would require MITM proxy with certificates
+
+### What gets captured for HTTPS:
+- The fact that an HTTPS connection was made
+- The destination host and port
+- Connection timing
+- NOT the actual request/response content (encrypted)
+
 ## Common Issues
 
 ### "Still seeing incoming calls"
@@ -153,6 +167,12 @@ Your app's HTTP client isn't using the proxy. Check:
 1. Is HTTP_PROXY set in the app's environment?
 2. Does your HTTP client library respect proxy settings?
 3. Are you using a custom HTTP client that bypasses proxy?
+
+### "HTTPS calls not showing content"
+This is normal behavior. The proxy uses CONNECT tunneling for HTTPS:
+- It can see that an HTTPS connection was made
+- It cannot decrypt the content without MITM certificates
+- For full HTTPS capture, consider using mitmproxy
 
 ### "No calls captured"
 1. Your app might be using HTTPS and not respecting HTTPS_PROXY
@@ -179,6 +199,29 @@ transport.OnProxyConnectResponse = func(ctx context.Context, proxyURL *url.URL, 
     return nil
 }
 client := &http.Client{Transport: transport}
+```
+
+## Docker Support
+
+### Running with Docker Compose
+```bash
+# Start the capture proxy
+docker-compose --profile capture up
+
+# Or build and run standalone
+docker build -f Dockerfile.capture -t capture-proxy .
+docker run -p 8091:8091 -v $(pwd)/captured:/app/captured capture-proxy
+```
+
+### Certificate Requirements for Docker:
+- **Current implementation**: No certificates needed (CONNECT tunneling)
+- **For MITM capture**: Use mitmproxy image or generate CA certificates
+
+```yaml
+# docker-compose.yml includes:
+capture-proxy:
+  environment:
+    - TRANSPARENT_MODE=true  # Enables HTTPS CONNECT support
 ```
 
 ## Alternative: Middleware Approach
