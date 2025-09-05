@@ -21,7 +21,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # Capture Proxy - Records real API responses
+  # Capture Proxy - Records real API responses (with HTTPS CONNECT support)
   capture-proxy:
     build:
       context: .
@@ -33,6 +33,7 @@ services:
     environment:
       - CAPTURE_PORT=8091
       - OUTPUT_DIR=/app/captured
+      - TRANSPARENT_MODE=true
       # Add your real API URLs here
       - DEFAULT_TARGET=${DEFAULT_TARGET:-https://jsonplaceholder.typicode.com}
       - ACCOUNTS_API_URL=${ACCOUNTS_API_URL:-}

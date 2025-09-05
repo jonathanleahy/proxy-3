@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -63,6 +64,14 @@ func (cp *CaptureProxy) AddTarget(name string, targetURL string) error {
 }
 
 func (cp *CaptureProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Received request: %s %s", r.Method, r.URL.String())
+	
+	// Handle CONNECT method for HTTPS tunneling
+	if r.Method == "CONNECT" {
+		cp.handleConnect(w, r)
+		return
+	}
+	
 	transparentMode := os.Getenv("TRANSPARENT_MODE") == "true"
 	
 	var targetURL string
@@ -283,6 +292,56 @@ func extractServiceName(path string) string {
 	return "misc"
 }
 
+// handleConnect handles CONNECT method for HTTPS tunneling
+func (cp *CaptureProxy) handleConnect(w http.ResponseWriter, r *http.Request) {
+	log.Printf("🔒 CONNECT tunnel requested for: %s", r.Host)
+	
+	// Establish connection to the target
+	targetConn, err := net.Dial("tcp", r.Host)
+	if err != nil {
+		log.Printf("Error connecting to %s: %v", r.Host, err)
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	defer targetConn.Close()
+	
+	// Hijack the connection first
+	hijacker, ok := w.(http.Hijacker)
+	if !ok {
+		http.Error(w, "Hijacking not supported", http.StatusInternalServerError)
+		return
+	}
+	
+	clientConn, _, err := hijacker.Hijack()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer clientConn.Close()
+	
+	// Send 200 Connection Established response
+	clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
+	
+	// Log that we're tunneling HTTPS (can't capture content without MITM)
+	cp.mu.Lock()
+	cp.captures = append(cp.captures, CapturedRoute{
+		Method:      "CONNECT",
+		Path:        r.Host,
+		Status:      200,
+		Response:    map[string]string{"note": "HTTPS tunnel established (content not captured - would require MITM)"},
+		Headers:     map[string]string{"Host": r.Host},
+		Description: fmt.Sprintf("HTTPS tunnel to %s", r.Host),
+		CapturedAt:  time.Now(),
+	})
+	cp.mu.Unlock()
+	
+	log.Printf("✅ HTTPS tunnel established to %s (content not captured)", r.Host)
+	
+	// Start bidirectional copy
+	go io.Copy(targetConn, clientConn)
+	io.Copy(clientConn, targetConn)
+}
+
 func main() {
 	port := os.Getenv("CAPTURE_PORT")
 	if port == "" {
@@ -328,7 +387,10 @@ func main() {
 		}
 	}
 
-	http.HandleFunc("/capture/save", func(w http.ResponseWriter, r *http.Request) {
+	// Create a custom mux
+	mux := http.NewServeMux()
+	
+	mux.HandleFunc("/capture/save", func(w http.ResponseWriter, r *http.Request) {
 		if err := proxy.SaveCaptures(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -336,7 +398,7 @@ func main() {
 		w.Write([]byte("Captures saved successfully\n"))
 	})
 
-	http.HandleFunc("/capture/status", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/capture/status", func(w http.ResponseWriter, r *http.Request) {
 		proxy.mu.Lock()
 		count := len(proxy.captures)
 		proxy.mu.Unlock()
@@ -348,7 +410,7 @@ func main() {
 		json.NewEncoder(w).Encode(response)
 	})
 
-	http.HandleFunc("/capture/live", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/capture/live", func(w http.ResponseWriter, r *http.Request) {
 		proxy.mu.Lock()
 		captures := make([]CapturedRoute, len(proxy.captures))
 		copy(captures, proxy.captures)
@@ -362,7 +424,16 @@ func main() {
 		})
 	})
 
-	http.Handle("/", proxy)
+	// Custom handler that checks path before delegating
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// If it's a capture endpoint, use the mux
+		if strings.HasPrefix(r.URL.Path, "/capture/") {
+			mux.ServeHTTP(w, r)
+		} else {
+			// Otherwise use the proxy
+			proxy.ServeHTTP(w, r)
+		}
+	})
 
 	log.Printf("Capture Proxy starting on port %s", port)
 	log.Printf("Output directory: %s", outputDir)
@@ -370,7 +441,7 @@ func main() {
 	log.Println("Save captures: curl http://localhost:" + port + "/capture/save")
 	log.Println("Check status: curl http://localhost:" + port + "/capture/status")
 	
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		log.Fatal(err)
 	}
 }

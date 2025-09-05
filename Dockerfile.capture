@@ -13,5 +13,8 @@ WORKDIR /app
 
 COPY --from=builder /app/capture-proxy .
 
+# Create captured directory
+RUN mkdir -p /app/captured
+
 EXPOSE 8091
 CMD ["./capture-proxy"]
