@@ -65,16 +65,13 @@ case "$ACTION" in
     
     echo -e "\n${YELLOW}Running app with transparent HTTPS capture...${NC}"
     echo -e "${BLUE}Command: $APP_CMD${NC}"
+    echo -e "${GREEN}Output will appear below (Ctrl+C to stop):${NC}"
+    echo "========================================="
     echo ""
     
-    # Run the command inside the app container in detached mode for servers
-    # Check if command ends with & to run in background
-    if [[ "$APP_CMD" == *"&"* ]]; then
-      docker compose -f docker-compose-transparent.yml exec -d app sh -c "$APP_CMD"
-      echo -e "${GREEN}✅ Server started in background${NC}"
-    else
-      docker compose -f docker-compose-transparent.yml exec app sh -c "$APP_CMD"
-    fi
+    # Run the command inside the app container - stays attached
+    # This is perfect for servers where you want to see live output
+    docker compose -f docker-compose-transparent.yml exec app sh -c "$APP_CMD"
     ;;
     
   server)
@@ -99,10 +96,19 @@ case "$ACTION" in
     echo -e "${BLUE}📄 Logs are being written to: $LOG_FILE${NC}"
     echo ""
     echo "Testing server connection..."
-    sleep 2
+    
+    # Try up to 5 times with 2 second delays
+    for i in {1..5}; do
+      sleep 2
+      if curl -s -o /dev/null -w "%{http_code}" --max-time 3 http://localhost:8080/api/health 2>/dev/null | grep -q "200"; then
+        SERVER_UP=true
+        break
+      fi
+      echo "  Waiting for server to start... ($i/5)"
+    done
     
     # Test if server is responding
-    if curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/health | grep -q "200"; then
+    if [ "$SERVER_UP" = "true" ]; then
       echo -e "${GREEN}✅ Server is responding on port 8080${NC}"
       echo ""
       echo "Endpoints available:"
