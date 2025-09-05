@@ -53,6 +53,12 @@ func NewMockServer(configPath string) *MockServer {
 		configPath: configPath,
 	}
 
+	// API endpoints for viewer
+	e.GET("/api/files/:dir", ms.handleListFiles)
+	e.GET("/api/file/:dir/*", ms.handleGetFile)
+	e.Static("/", ".")
+	
+	// Mock routes handler (must be last)
 	e.Any("/*", ms.handleRequest)
 
 	return ms
@@ -95,6 +101,67 @@ func (ms *MockServer) loadRoutes() error {
 
 	log.Printf("Total routes loaded: %d", totalRoutes)
 	return nil
+}
+
+func (ms *MockServer) handleListFiles(c echo.Context) error {
+	dir := c.Param("dir")
+	
+	var path string
+	if dir == "configs" {
+		path = ms.configPath
+	} else if dir == "captured" {
+		path = "./captured"
+	} else {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid directory"})
+	}
+
+	pattern := filepath.Join(path, "*.json")
+	files, err := filepath.Glob(pattern)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to list files"})
+	}
+
+	var fileNames []string
+	for _, file := range files {
+		fileNames = append(fileNames, filepath.Base(file))
+	}
+
+	return c.JSON(http.StatusOK, fileNames)
+}
+
+func (ms *MockServer) handleGetFile(c echo.Context) error {
+	dir := c.Param("dir")
+	filename := c.Param("*")
+	
+	var basePath string
+	if dir == "configs" {
+		basePath = ms.configPath
+	} else if dir == "captured" {
+		basePath = "./captured"
+	} else {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid directory"})
+	}
+
+	// Ensure filename is safe (no path traversal)
+	if strings.Contains(filename, "..") {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid filename"})
+	}
+
+	filePath := filepath.Join(basePath, filename)
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "File not found"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to read file"})
+	}
+
+	var content interface{}
+	if err := json.Unmarshal(data, &content); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Invalid JSON"})
+	}
+
+	return c.JSON(http.StatusOK, content)
 }
 
 func (ms *MockServer) handleRequest(c echo.Context) error {
