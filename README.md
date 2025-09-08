@@ -61,6 +61,40 @@ The system automatically prevents running applications as root, which would bypa
 
 ⚠️ **IMPORTANT**: The app MUST run as `appuser` (UID 1000) for traffic to be intercepted. The scripts handle this automatically.
 
+### Available Scripts
+
+#### 🚀 **Primary Scripts:**
+- **`start-proxy-system.sh`** - Start system with any application (accepts custom commands)
+- **`monitor-proxy.sh`** - Real-time monitoring dashboard with interactive controls
+- **`test-proxy-capture.sh`** - Comprehensive testing to verify capture is working
+- **`rebuild-proxy.sh`** - Rebuild Docker containers after changes
+
+#### 🔧 **Utility Scripts:**
+- **`transparent-capture.sh`** - Low-level container management
+- **`test-transparent-proxy.sh`** - Detailed system testing
+- **`dev-rebuild.sh`** - Development rebuild with hot reload
+- **`build.sh`** - Build project binaries
+
+#### 📡 **Capture Scripts:**
+- **`capture-real-apis.sh`** - Set up capture proxy for real APIs
+- **`start-https-capture.sh`** - Start HTTPS capture with mitmproxy
+- **`start-mitm-proxy.sh`** - Start standalone MITM proxy
+
+### Rebuild After Changes
+
+If you modify Dockerfiles or scripts, rebuild the containers:
+
+```bash
+# Standard rebuild
+./rebuild-proxy.sh
+
+# Clean rebuild (no cache)
+./rebuild-proxy.sh --clean
+
+# Rebuild without restarting
+./rebuild-proxy.sh --no-restart
+```
+
 ## Features
 
 - 🔐 **No certificates needed** - Transparent interception using iptables
