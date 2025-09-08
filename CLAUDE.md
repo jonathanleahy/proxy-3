@@ -2,47 +2,65 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ CRITICAL: Follow README.md Instructions
+
+**ALWAYS follow the README.md instructions when running this system!**
+
+### Correct Way to Run the System:
+```bash
+# ALWAYS use the management scripts - they handle everything correctly
+./start-proxy-system.sh                        # For default example app
+./start-proxy-system.sh 'go run /app/myapp.go' # For custom app
+./monitor-proxy.sh                             # Monitor the system
+./test-proxy-capture.sh                        # Test captures
+```
+
+### NEVER Do This:
+```bash
+# ❌ WRONG - This runs as root and bypasses the proxy!
+docker exec app go run main.go
+
+# ❌ WRONG - Direct docker commands skip critical setup
+docker compose up -d
+```
+
+### Key Requirements:
+1. **Apps MUST run as appuser (UID 1000)** - The scripts handle this automatically
+2. **Traffic from root is NOT intercepted** - This is by design to prevent loops
+3. **Always use management scripts** - They ensure correct user, permissions, and setup
+
 ## Project Overview
 
-This is a dynamic mock API server for the Firecracker API project, built in Go using Echo framework (Go 1.21). It provides:
+This is a transparent HTTPS proxy system that captures all HTTP/HTTPS traffic without requiring proxy configuration. It uses Docker, mitmproxy, and iptables for transparent interception.
+
+Key features:
+- **Transparent interception** using iptables (no proxy settings needed)
+- **Automatic certificate trust** without system installation  
+- **User-based traffic filtering** - MUST run as appuser (UID 1000)
+- **Management scripts** that handle all configuration automatically
 - Dynamic route loading from JSON configuration files
 - Hot reload when config files change using fsnotify
 - API response capture proxy for recording real API responses
-- **NEW**: MITM proxy for full HTTPS content capture using Docker/mitmproxy
 - Support for path parameters and response templating
 - Automatic path normalization (IDs become `{id}` placeholders)
-- Works on restricted machines without admin access (using environment variables)
 
-## Development Commands
+## Correct Development Commands
 
 ```bash
-# Run mock server standalone (port 8090)
-go run cmd/main.go
+# Start the transparent proxy system (ALWAYS use this!)
+./start-proxy-system.sh
 
-# Run capture proxy for recording real API responses (port 8091)
-go run cmd/capture/main.go
+# Monitor the system
+./monitor-proxy.sh
 
-# Run MITM proxy for full HTTPS capture (port 8080)
-docker-compose --profile mitm up
+# Test that captures are working
+./test-proxy-capture.sh
 
-# Extract CA certificate for MITM (no admin needed)
-./scripts/get-mitm-cert.sh
+# Rebuild after changes
+./rebuild-proxy.sh
 
-# Quick capture setup with script
-./capture-real-apis.sh intercept  # Creates run-capture-proxy.sh
-
-# Build binaries
-go build -o mock-server cmd/main.go
-go build -o capture-proxy cmd/capture/main.go
-
-# Run with Docker
-docker build -t mock-api-server .
-docker run -p 8090:8090 -v $(pwd)/configs:/app/configs mock-api-server
-
-# Manage services (if using run-with-mocks.sh)
-./run-with-mocks.sh start   # Start all services
-./run-with-mocks.sh stop    # Stop services
-./run-with-mocks.sh capture # Start capture mode
+# For development with hot reload
+./dev-rebuild.sh
 ```
 
 ## Architecture

@@ -166,10 +166,28 @@ test_system() {
     fi
 }
 
+# Function to cleanup existing processes
+cleanup_existing() {
+    echo -e "${YELLOW}🧹 Cleaning up existing processes...${NC}"
+    
+    # Kill any processes running as root (wrong!)
+    docker exec app sh -c "ps aux | grep 'go run' | grep root | awk '{print \$1}' | xargs -r kill -9" 2>/dev/null || true
+    docker exec app sh -c "pkill -f 'python' 2>/dev/null || true; pkill -f 'node' 2>/dev/null || true" 2>/dev/null || true
+    
+    # Kill local zombie processes
+    pkill -f "transparent-capture.sh" 2>/dev/null || true
+    pkill -f "go run cmd/main.go" 2>/dev/null || true
+    
+    sleep 2
+    echo -e "${GREEN}✅ Cleanup complete${NC}"
+}
+
 # Main execution
 echo -e "${BLUE}Step 1: Checking Docker containers${NC}"
 if check_containers; then
     echo -e "${GREEN}✅ Containers are running${NC}"
+    # Clean up any incorrectly running processes
+    cleanup_existing
 else
     echo -e "${YELLOW}⚠️  Containers not running, starting them...${NC}"
     docker compose -f docker-compose-transparent.yml up -d
