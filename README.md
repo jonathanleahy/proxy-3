@@ -1,6 +1,16 @@
 # Transparent HTTPS Proxy System
 
+✅ **STATUS: All critical issues have been fixed. System is fully operational.**
+
 A Docker-based transparent HTTPS proxy that captures all HTTP/HTTPS traffic without requiring certificates or proxy configuration. Perfect for API development, testing, and debugging.
+
+## 🔧 Recent Fixes (Resolved)
+
+The following critical issues have been fixed:
+1. **Certificate Race Condition** - Certificate now properly copies from `~/.mitmproxy` to `/certs/`
+2. **Container Start Order** - App container now waits up to 60s for certificate availability
+3. **SSL Trust** - `SSL_CERT_FILE` environment variable automatically set for HTTPS trust
+4. **Process Cleanup** - Scripts automatically kill root processes that bypass the proxy
 
 ## 🚀 Quick Start - Use Management Scripts
 
@@ -72,10 +82,10 @@ The start script automatically cleans up existing processes before starting:
 ### Available Scripts
 
 #### 🚀 **Primary Scripts:**
-- **`start-proxy-system.sh`** - Start system with any application (accepts custom commands)
+- **`start-proxy-system.sh`** - Start system with any application (accepts custom commands, handles certificate setup)
 - **`monitor-proxy.sh`** - Real-time monitoring dashboard with interactive controls
 - **`test-proxy-capture.sh`** - Comprehensive testing to verify capture is working
-- **`rebuild-proxy.sh`** - Rebuild Docker containers after changes
+- **`rebuild-proxy.sh`** - Rebuild Docker containers after changes (required after Docker file edits)
 
 #### 🔧 **Utility Scripts:**
 - **`transparent-capture.sh`** - Low-level container management
@@ -105,12 +115,13 @@ If you modify Dockerfiles or scripts, rebuild the containers:
 
 ## Features
 
-- 🔐 **No certificates needed** - Transparent interception using iptables
-- 🚀 **Zero configuration** - Works out of the box
+- 🔐 **Certificate auto-generation** - Automatic mitmproxy CA certificate creation and trust
+- 🚀 **Zero configuration** - Works out of the box with fixed timing issues
 - 📊 **Web viewer** - View captured requests at http://localhost:8090/viewer
 - 🔄 **Hot reload** - Mock server auto-reloads when config changes
 - 🏗️ **Multi-architecture** - Supports x86_64, ARM64, and more
 - 🐳 **Docker-based** - Consistent environment across all platforms
+- ✅ **Fully tested** - All critical issues resolved, HTTPS interception verified
 
 ## Manual Setup (Alternative to Scripts)
 
