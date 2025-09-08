@@ -2,6 +2,65 @@
 
 A Docker-based transparent HTTPS proxy that captures all HTTP/HTTPS traffic without requiring certificates or proxy configuration. Perfect for API development, testing, and debugging.
 
+## 🚀 Quick Start - Use Management Scripts
+
+The easiest way to use this system is with the provided management scripts:
+
+```bash
+# Start everything and ensure proper configuration
+./start-proxy-system.sh
+
+# Monitor the system in real-time
+./monitor-proxy.sh
+
+# Test that capture is working
+./test-proxy-capture.sh
+```
+
+### Management Scripts Features
+
+#### ✅ **Script Capabilities:**
+
+1. **Command-line arguments** - Accept custom commands for any application
+2. **Help message** - Use `--help` or `-h` to see detailed usage
+3. **Default behavior** - Runs example app if no command provided
+4. **Flexible options:**
+   - `-m, --monitor` - Launch monitor after setup
+   - `-t, --test` - Run tests after setup
+   - `-s, --skip` - Skip startup tests for faster launch
+
+#### 📋 **Usage Examples:**
+
+```bash
+# Show help and all options
+./start-proxy-system.sh --help
+
+# Run default example app
+./start-proxy-system.sh
+
+# Run custom Go application
+./start-proxy-system.sh 'go run /app/myapp.go'
+
+# Run Python app with monitoring
+./start-proxy-system.sh --monitor 'python3 /app/server.py'
+
+# Run Node.js app and skip tests
+./start-proxy-system.sh --skip 'node /app/server.js'
+
+# Run with custom command and launch tests after
+./start-proxy-system.sh --test 'java -jar /app/myapp.jar'
+```
+
+#### 🛡️ **Automatic Root Protection:**
+
+The system automatically prevents running applications as root, which would bypass the proxy:
+- **Detects root execution** - Shows clear error message if attempting to run as root
+- **Explains the issue** - Traffic won't be intercepted when running as root
+- **Provides solution** - Shows exact commands to run correctly as appuser
+- **Enforces best practices** - Ensures all traffic goes through the proxy
+
+⚠️ **IMPORTANT**: The app MUST run as `appuser` (UID 1000) for traffic to be intercepted. The scripts handle this automatically.
+
 ## Features
 
 - 🔐 **No certificates needed** - Transparent interception using iptables
@@ -11,7 +70,7 @@ A Docker-based transparent HTTPS proxy that captures all HTTP/HTTPS traffic with
 - 🏗️ **Multi-architecture** - Supports x86_64, ARM64, and more
 - 🐳 **Docker-based** - Consistent environment across all platforms
 
-## Quick Start
+## Manual Setup (Alternative to Scripts)
 
 ### 1. Start the Transparent Proxy System
 
@@ -23,13 +82,14 @@ docker compose -f docker-compose-transparent.yml up -d
 docker compose -f docker-compose-transparent.yml ps
 ```
 
-### 2. Run the Example API (Makes HTTPS Calls)
-
-The example API demonstrates transparent HTTPS capture by making calls to external services:
+### 2. Run the Example API (CRITICAL: Must run as appuser!)
 
 ```bash
-# Run inside the container (traffic automatically captured)
-docker exec app sh -c "cd /proxy/example-app && go run main.go"
+# ✅ CORRECT - Run as appuser (UID 1000) so traffic gets intercepted
+docker exec -d app su-exec appuser sh -c "cd /proxy/example-app && go run main.go"
+
+# ❌ WRONG - Running as root will bypass the proxy!
+# docker exec app sh -c "cd /proxy/example-app && go run main.go"
 
 # The API will be available at http://localhost:8080
 ```

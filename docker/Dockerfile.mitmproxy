@@ -7,11 +7,18 @@ RUN apt-get update && \
     apt-get install -y iptables iproute2 ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy our capture script
-COPY scripts/mitm_capture.py /scripts/mitm_capture.py
-COPY docker/transparent-entry.sh /transparent-entry.sh
+# Install Python for health check server
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN chmod +x /transparent-entry.sh
+# Copy our scripts
+COPY scripts/mitm_capture.py /scripts/mitm_capture.py
+COPY scripts/mitm_capture_improved.py /scripts/mitm_capture_improved.py
+COPY scripts/health_check_server.py /scripts/health_check_server.py
+COPY docker/transparent-entry-supervised.sh /transparent-entry.sh
+
+RUN chmod +x /transparent-entry.sh /scripts/*.py
 
 # Create captured directory
 RUN mkdir -p /captured && chown mitmproxy:mitmproxy /captured

@@ -6,6 +6,7 @@ WORKDIR /app
 # Install ca-certificates package for certificate management
 RUN apk add --no-cache ca-certificates
 
+RUN apk add --no-cache su-exec
 # Create directory for custom certificates
 RUN mkdir -p /usr/local/share/ca-certificates
 
@@ -21,7 +22,7 @@ RUN chmod +x /app-entry.sh
 RUN chown -R appuser:appuser /app
 
 # Switch to non-root user
-USER appuser
+# USER appuser - Stay as root for cert installation
 
 # Default command - can be overridden
 ENTRYPOINT ["/app-entry.sh"]

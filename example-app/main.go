@@ -96,10 +96,51 @@ func FetchPosts(w http.ResponseWriter, r *http.Request) {
 
 // HealthCheck endpoint
 func HealthCheck(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Response{
 		Message:   "Service is healthy",
 		Timestamp: time.Now(),
 		Source:    "internal",
+	})
+}
+
+// CreateUser handles POST requests to create a user
+func CreateUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	
+	// Parse request body
+	var requestData map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		json.NewEncoder(w).Encode(Response{
+			Message:   "Invalid JSON in request body",
+			Timestamp: time.Now(),
+			Source:    "error",
+		})
+		return
+	}
+	
+	// Simulate creating user
+	json.NewEncoder(w).Encode(Response{
+		Message:   "User created successfully",
+		Timestamp: time.Now(),
+		Data:      requestData,
+		Source:    "internal",
+	})
+}
+
+// NotFound handles 404 responses
+func NotFound(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNotFound)
+	json.NewEncoder(w).Encode(Response{
+		Message:   fmt.Sprintf("Endpoint not found: %s", r.URL.Path),
+		Timestamp: time.Now(),
+		Source:    "error",
 	})
 }
 
@@ -185,11 +226,22 @@ func main() {
 		log.Println("🎭 No proxy set - direct connections")
 	}
 
-	// Setup routes
-	http.HandleFunc("/health", HealthCheck)
-	http.HandleFunc("/users", FetchUsers)
-	http.HandleFunc("/posts", FetchPosts)
-	http.HandleFunc("/aggregate", AggregateData)
+	// Setup routes with proper handlers
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", HealthCheck)
+	mux.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			FetchUsers(w, r)
+		case http.MethodPost:
+			CreateUser(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/posts", FetchPosts)
+	mux.HandleFunc("/aggregate", AggregateData)
+	mux.HandleFunc("/", NotFound)
 
 	// Start server
 	log.Printf("🚀 Example REST API starting on port %s", port)
@@ -199,7 +251,7 @@ func main() {
 	log.Println("  GET /posts     - Fetch posts from external API")
 	log.Println("  GET /aggregate - Aggregate data from multiple sources")
 	
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	if err := http.ListenAndServe(":"+port, mux); err != nil {
 		log.Fatal(err)
 	}
 }

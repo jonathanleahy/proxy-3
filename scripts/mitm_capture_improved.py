@@ -25,9 +25,22 @@ class ImprovedCaptureAddon:
         self.output_dir = os.environ.get('OUTPUT_DIR', '/captured')
         self.save_interval = int(os.environ.get('SAVE_INTERVAL', '30'))  # seconds
         self.save_count = int(os.environ.get('SAVE_COUNT', '10'))  # number of captures
+        self.max_memory_captures = int(os.environ.get('MAX_MEMORY_CAPTURES', '100'))  # max in memory
         self.last_save_time = time.time()
         self.capture_count = 0
         self.total_captured = 0
+        
+        # Rate limiting
+        self.rate_limit_window = 60  # seconds
+        self.rate_limit_max = 100  # max requests per window
+        self.rate_limit_requests = []
+        
+        # Circuit breaker
+        self.failure_threshold = 5
+        self.failure_count = 0
+        self.circuit_open = False
+        self.circuit_open_time = None
+        self.circuit_timeout = 30  # seconds
         
         # Ensure output directory exists with proper permissions
         Path(self.output_dir).mkdir(parents=True, exist_ok=True)
@@ -68,8 +81,46 @@ class ImprovedCaptureAddon:
         """Called when a request is received"""
         flow.request_time = time.time()
     
+    def check_rate_limit(self):
+        """Check if rate limit is exceeded"""
+        current_time = time.time()
+        
+        # Remove old requests outside the window
+        self.rate_limit_requests = [t for t in self.rate_limit_requests 
+                                   if current_time - t < self.rate_limit_window]
+        
+        # Check if limit exceeded
+        if len(self.rate_limit_requests) >= self.rate_limit_max:
+            print(f"⚠️ Rate limit exceeded: {len(self.rate_limit_requests)}/{self.rate_limit_max} requests", flush=True)
+            return False
+        
+        # Add current request
+        self.rate_limit_requests.append(current_time)
+        return True
+    
+    def check_circuit_breaker(self):
+        """Check circuit breaker status"""
+        if self.circuit_open:
+            # Check if timeout has passed
+            if time.time() - self.circuit_open_time > self.circuit_timeout:
+                print(f"🔌 Circuit breaker closed after timeout", flush=True)
+                self.circuit_open = False
+                self.failure_count = 0
+            else:
+                return False
+        return True
+    
     def response(self, flow: http.HTTPFlow) -> None:
         """Called when a response is received"""
+        # Check rate limit
+        if not self.check_rate_limit():
+            return
+        
+        # Check circuit breaker
+        if not self.check_circuit_breaker():
+            print(f"🔴 Circuit breaker is open, skipping capture", flush=True)
+            return
+        
         try:
             # Calculate response time
             response_time = int((time.time() - flow.request_time) * 1000) if hasattr(flow, 'request_time') else 0
@@ -140,10 +191,17 @@ class ImprovedCaptureAddon:
             self.capture_count += 1
             self.total_captured += 1
             
+            # Reset failure count on success
+            self.failure_count = 0
+            
             print(f"✅ [{self.total_captured}] Captured: {flow.request.method} {flow.request.path} -> {flow.response.status_code} ({response_time}ms)", flush=True)
             
+            # Check memory limit
+            if len(self.captures) >= self.max_memory_captures:
+                print(f"💾 Memory limit reached ({self.max_memory_captures} captures), forcing save", flush=True)
+                self.save_captures()
             # Check if we should save based on count
-            if self.capture_count >= self.save_count:
+            elif self.capture_count >= self.save_count:
                 print(f"📊 Reached {self.save_count} captures, triggering save", flush=True)
                 self.save_captures()
                 
@@ -151,6 +209,13 @@ class ImprovedCaptureAddon:
             print(f"❌ Error capturing flow: {e}", flush=True)
             import traceback
             traceback.print_exc()
+            
+            # Increment failure count
+            self.failure_count += 1
+            if self.failure_count >= self.failure_threshold:
+                print(f"🔴 Circuit breaker opened after {self.failure_count} failures", flush=True)
+                self.circuit_open = True
+                self.circuit_open_time = time.time()
     
     def save_captures(self, force=False):
         """Save captures to JSON file"""
