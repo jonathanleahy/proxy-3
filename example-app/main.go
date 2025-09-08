@@ -29,8 +29,10 @@ func FetchUsers(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Fetching users from: %s", apiURL)
 
-	// Create standard HTTP client
-	client := &http.Client{}
+	// Create standard HTTP client with timeout
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
 
 	resp, err := client.Get(fmt.Sprintf("%s/users", apiURL))
 	if err != nil {
@@ -64,8 +66,10 @@ func FetchPosts(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Fetching posts from: %s", apiURL)
 
-	// Create standard HTTP client
-	client := &http.Client{}
+	// Create standard HTTP client with timeout
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
 
 	resp, err := client.Get(fmt.Sprintf("%s/posts?_limit=5", apiURL))
 	if err != nil {
@@ -108,28 +112,51 @@ func AggregateData(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Aggregating data from: %s", apiURL)
 
-	// Create standard HTTP client
-	client := &http.Client{}
+	// Create standard HTTP client with timeout
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
 
 	// Fetch user
-	userResp, _ := client.Get(fmt.Sprintf("%s/users/1", apiURL))
-	userBody, _ := io.ReadAll(userResp.Body)
-	userResp.Body.Close()
+	userResp, err := client.Get(fmt.Sprintf("%s/users/1", apiURL))
+	var userBody []byte
+	if err != nil {
+		log.Printf("Error fetching user: %v", err)
+	} else {
+		defer userResp.Body.Close()
+		userBody, _ = io.ReadAll(userResp.Body)
+	}
 
 	// Fetch posts
-	postsResp, _ := client.Get(fmt.Sprintf("%s/posts?userId=1&_limit=3", apiURL))
-	postsBody, _ := io.ReadAll(postsResp.Body)
-	postsResp.Body.Close()
+	postsResp, err := client.Get(fmt.Sprintf("%s/posts?userId=1&_limit=3", apiURL))
+	var postsBody []byte
+	if err != nil {
+		log.Printf("Error fetching posts: %v", err)
+	} else {
+		defer postsResp.Body.Close()
+		postsBody, _ = io.ReadAll(postsResp.Body)
+	}
 
 	// Fetch todos
-	todosResp, _ := client.Get(fmt.Sprintf("%s/todos?userId=1&_limit=3", apiURL))
-	todosBody, _ := io.ReadAll(todosResp.Body)
-	todosResp.Body.Close()
+	todosResp, err := client.Get(fmt.Sprintf("%s/todos?userId=1&_limit=3", apiURL))
+	var todosBody []byte
+	if err != nil {
+		log.Printf("Error fetching todos: %v", err)
+	} else {
+		defer todosResp.Body.Close()
+		todosBody, _ = io.ReadAll(todosResp.Body)
+	}
 
 	var user, posts, todos interface{}
-	json.Unmarshal(userBody, &user)
-	json.Unmarshal(postsBody, &posts)
-	json.Unmarshal(todosBody, &todos)
+	if len(userBody) > 0 {
+		json.Unmarshal(userBody, &user)
+	}
+	if len(postsBody) > 0 {
+		json.Unmarshal(postsBody, &posts)
+	}
+	if len(todosBody) > 0 {
+		json.Unmarshal(todosBody, &todos)
+	}
 
 	aggregated := map[string]interface{}{
 		"user":  user,
