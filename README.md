@@ -59,6 +59,14 @@ The system automatically prevents running applications as root, which would bypa
 - **Provides solution** - Shows exact commands to run correctly as appuser
 - **Enforces best practices** - Ensures all traffic goes through the proxy
 
+#### 🧹 **Automatic Process Cleanup:**
+
+The start script automatically cleans up existing processes before starting:
+- **Kills root processes** - Removes any apps running as root (which bypass the proxy)
+- **Cleans zombie processes** - Kills leftover transparent-capture.sh instances
+- **Ensures clean state** - Prevents conflicts from previous runs
+- **No manual cleanup needed** - Script handles everything automatically
+
 ⚠️ **IMPORTANT**: The app MUST run as `appuser` (UID 1000) for traffic to be intercepted. The scripts handle this automatically.
 
 ### Available Scripts
