@@ -1,10 +1,15 @@
 #!/bin/sh
 # Entry point for app container to use mitmproxy certificate
 
-# Wait for certificate to be available (max 30 seconds)
+# Wait for certificate to be available (max 60 seconds with retry)
 count=0
-while [ ! -f /certs/mitmproxy-ca-cert.pem ] && [ $count -lt 30 ]; do
-    echo "⏳ Waiting for mitmproxy certificate..."
+max_wait=60
+while [ ! -f /certs/mitmproxy-ca-cert.pem ] && [ $count -lt $max_wait ]; do
+    if [ $count -eq 0 ]; then
+        echo "⏳ Waiting for mitmproxy certificate (up to ${max_wait}s)..."
+    elif [ $((count % 10)) -eq 0 ]; then
+        echo "⏳ Still waiting for certificate... (${count}s elapsed)"
+    fi
     sleep 1
     count=$((count + 1))
 done
@@ -36,7 +41,8 @@ if [ -f /certs/mitmproxy-ca-cert.pem ]; then
     
     echo "✅ Certificate configured via environment variables"
 else
-    echo "⚠️  No mitmproxy certificate found at /certs/mitmproxy-ca-cert.pem after waiting"
+    echo "⚠️  No mitmproxy certificate found at /certs/mitmproxy-ca-cert.pem after ${max_wait}s"
+    echo "🔄 Note: Certificate may appear later. Apps should use SSL_CERT_FILE=/certs/mitmproxy-ca-cert.pem"
 fi
 
 # Check if we're about to run an application command

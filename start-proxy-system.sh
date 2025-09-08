@@ -100,19 +100,41 @@ check_containers() {
 wait_for_cert() {
     echo -e "${YELLOW}⏳ Waiting for mitmproxy certificate...${NC}"
     local count=0
+    local max_wait=60
     
-    # Check if certificate exists in container
-    while ! docker exec transparent-proxy test -f /certs/mitmproxy-ca-cert.pem 2>/dev/null && [ $count -lt 30 ]; do
+    # First wait for proxy container to be ready
+    while ! docker exec transparent-proxy test -f ~/.mitmproxy/mitmproxy-ca-cert.pem 2>/dev/null && [ $count -lt 10 ]; do
         sleep 1
         count=$((count + 1))
     done
     
+    # Check if certificate exists in container (either location)
+    count=0
+    while [ $count -lt $max_wait ]; do
+        if docker exec transparent-proxy test -f /certs/mitmproxy-ca-cert.pem 2>/dev/null; then
+            echo -e "${GREEN}✅ Certificate ready in /certs/${NC}"
+            return 0
+        fi
+        
+        if [ $((count % 10)) -eq 0 ] && [ $count -gt 0 ]; then
+            echo -e "${YELLOW}⏳ Still waiting for certificate... (${count}s elapsed)${NC}"
+        fi
+        
+        sleep 1
+        count=$((count + 1))
+    done
+    
+    # Try to manually copy if not found
+    echo -e "${YELLOW}🔄 Attempting manual certificate copy...${NC}"
+    docker exec transparent-proxy sh -c "[ -f ~/.mitmproxy/mitmproxy-ca-cert.pem ] && cp ~/.mitmproxy/mitmproxy-ca-cert.pem /certs/ 2>/dev/null" || true
+    
     if docker exec transparent-proxy test -f /certs/mitmproxy-ca-cert.pem 2>/dev/null; then
-        echo -e "${GREEN}✅ Certificate found in container${NC}"
+        echo -e "${GREEN}✅ Certificate copied successfully${NC}"
         return 0
     else
-        echo -e "${YELLOW}⚠️  Certificate not found, but continuing...${NC}"
-        return 0  # Continue anyway as certificate might be generated later
+        echo -e "${RED}❌ Certificate still not available after ${max_wait}s${NC}"
+        echo -e "${YELLOW}⚠️  Continuing anyway - apps should use SSL_CERT_FILE=/certs/mitmproxy-ca-cert.pem${NC}"
+        return 0
     fi
 }
 
@@ -126,7 +148,8 @@ start_app() {
     sleep 1
     
     # Start the app as appuser (UID 1000) so traffic gets intercepted
-    docker exec -d app su-exec appuser sh -c "$APP_COMMAND"
+    # Ensure SSL_CERT_FILE is set for certificate trust
+    docker exec -d app su-exec appuser sh -c "export SSL_CERT_FILE=/certs/mitmproxy-ca-cert.pem && $APP_COMMAND"
     
     # Wait for app to start
     sleep 3
@@ -196,7 +219,9 @@ else
     sleep 5
 fi
 
-echo -e "\n${BLUE}Step 2: Waiting for certificate${NC}"
+echo -e "\n${BLUE}Step 2: Waiting for proxy initialization and certificate${NC}"
+echo -e "${YELLOW}🕰️ Giving proxy time to initialize...${NC}"
+sleep 5
 wait_for_cert
 
 echo -e "\n${BLUE}Step 3: Starting application${NC}"

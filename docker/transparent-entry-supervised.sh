@@ -41,10 +41,10 @@ start_mitmproxy_for_cert() {
     timeout 5 mitmdump --mode transparent --listen-port 8086 >/dev/null 2>&1 &
     local cert_pid=$!
     
-    # Wait for certificate generation
+    # Wait for certificate generation (check both possible locations)
     local max_wait=10
     local waited=0
-    while [ ! -f /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem ] && [ $waited -lt $max_wait ]; do
+    while [ ! -f ~/.mitmproxy/mitmproxy-ca-cert.pem ] && [ ! -f /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem ] && [ $waited -lt $max_wait ]; do
         sleep 1
         waited=$((waited + 1))
     done
@@ -53,7 +53,7 @@ start_mitmproxy_for_cert() {
     kill $cert_pid 2>/dev/null || true
     wait $cert_pid 2>/dev/null || true
     
-    if [ -f /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem ]; then
+    if [ -f ~/.mitmproxy/mitmproxy-ca-cert.pem ] || [ -f /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem ]; then
         echo "✅ Certificate generated successfully"
         return 0
     else
@@ -66,14 +66,22 @@ start_mitmproxy_for_cert() {
 copy_certificate() {
     mkdir -p /certs
     
-    if [ -f /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem ]; then
-        cp /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem /certs/
+    # Check both possible certificate locations
+    local cert_source=""
+    if [ -f ~/.mitmproxy/mitmproxy-ca-cert.pem ]; then
+        cert_source=~/.mitmproxy/mitmproxy-ca-cert.pem
+    elif [ -f /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem ]; then
+        cert_source=/home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem
+    fi
+    
+    if [ -n "$cert_source" ]; then
+        cp "$cert_source" /certs/
         chmod 644 /certs/mitmproxy-ca-cert.pem
         chown root:root /certs/mitmproxy-ca-cert.pem
-        echo "✅ Certificate copied to shared volume"
+        echo "✅ Certificate copied to shared volume from $cert_source"
         return 0
     else
-        echo "❌ Certificate not found"
+        echo "❌ Certificate not found in any location"
         return 1
     fi
 }
@@ -106,7 +114,7 @@ start_mitmproxy() {
         --mode transparent \
         --listen-port 8084 \
         --showhost \
-        --set confdir=/home/mitmproxy/.mitmproxy \
+        --set confdir=~/.mitmproxy \
         -s "$CAPTURE_SCRIPT" \
         --set block_global=false \
         --verbose 2>&1 &
