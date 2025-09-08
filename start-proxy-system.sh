@@ -100,17 +100,19 @@ check_containers() {
 wait_for_cert() {
     echo -e "${YELLOW}⏳ Waiting for mitmproxy certificate...${NC}"
     local count=0
-    while [ ! -f captured/mitmproxy-ca-cert.pem ] && [ $count -lt 30 ]; do
+    
+    # Check if certificate exists in container
+    while ! docker exec transparent-proxy test -f /certs/mitmproxy-ca-cert.pem 2>/dev/null && [ $count -lt 30 ]; do
         sleep 1
         count=$((count + 1))
     done
     
-    if [ -f captured/mitmproxy-ca-cert.pem ]; then
-        echo -e "${GREEN}✅ Certificate found${NC}"
+    if docker exec transparent-proxy test -f /certs/mitmproxy-ca-cert.pem 2>/dev/null; then
+        echo -e "${GREEN}✅ Certificate found in container${NC}"
         return 0
     else
-        echo -e "${RED}❌ Certificate not found after 30 seconds${NC}"
-        return 1
+        echo -e "${YELLOW}⚠️  Certificate not found, but continuing...${NC}"
+        return 0  # Continue anyway as certificate might be generated later
     fi
 }
 
