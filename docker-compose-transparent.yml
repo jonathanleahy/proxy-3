@@ -61,6 +61,7 @@ services:
       - ./configs:/app/configs
       - ./captured:/app/captured
       - ./viewer.html:/app/viewer.html:ro
+      - ./viewer-history.html:/app/viewer-history.html:ro
     environment:
       - PORT=8090
     networks:
