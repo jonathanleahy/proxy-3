@@ -1,0 +1,30 @@
+# Ignore captured data
+captured/
+*.json
+
+# Ignore git
+.git/
+.gitignore
+
+# Ignore binaries
+mock-server
+capture-proxy
+main
+*.exe
+
+# Ignore temp files
+*.tmp
+*.log
+*.swp
+.DS_Store
+
+# Ignore documentation
+*.md
+docs/
+
+# Ignore test files
+*_test.go
+test/
+
+# Ignore large viewer files if they exist
+viewer*.html

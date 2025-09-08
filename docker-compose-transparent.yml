@@ -11,6 +11,7 @@ services:
     volumes:
       - ./captured:/captured
       - ./scripts:/scripts:ro
+      - certs:/certs  # Share certificates with app container
     networks:
       capture-net:
         ipv4_address: 172.28.0.2
@@ -33,6 +34,7 @@ services:
     network_mode: "service:transparent-proxy"
     volumes:
       - ./:/proxy
+      - certs:/certs:ro  # Mount certificates from proxy container (read-only)
     working_dir: /proxy
     environment:
       # No proxy environment variables needed!
@@ -74,3 +76,6 @@ networks:
     ipam:
       config:
         - subnet: 172.28.0.0/24
+
+volumes:
+  certs:  # Shared volume for certificates

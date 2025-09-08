@@ -13,52 +13,147 @@ A Docker-based transparent HTTPS proxy that captures all HTTP/HTTPS traffic with
 
 ## Quick Start
 
-### 1. Clone and Setup (First Time Only)
+### 1. Start the Transparent Proxy System
 
 ```bash
-git clone https://github.com/jonathanleahy/proxy-3.git
-cd proxy-3
-./setup.sh  # Builds binaries and Docker images
+# Start all containers (proxy, app container, viewer)
+docker compose -f docker-compose-transparent.yml up -d
+
+# Check status
+docker compose -f docker-compose-transparent.yml ps
 ```
 
-### 2. Start Everything
+### 2. Run the Example API (Makes HTTPS Calls)
+
+The example API demonstrates transparent HTTPS capture by making calls to external services:
 
 ```bash
-# Option A: Start system and server together
-./transparent-capture.sh start --with-server
+# Run inside the container (traffic automatically captured)
+docker exec app sh -c "cd /proxy/example-app && go run main.go"
 
-# Option B: Start separately
-./transparent-capture.sh start   # Start containers
-./transparent-capture.sh server  # Start REST server
+# The API will be available at http://localhost:8080
 ```
 
-### 3. Test It Works
+### 3. Test the API Endpoints
 
 ```bash
-curl http://localhost:8080/api/health
-# Returns: {"status":"healthy"}
+# Run the test script
+cd example-app
+./test.sh
+
+# Or test individual endpoints
+curl http://localhost:8080/health      # Health check (no external calls)
+curl http://localhost:8080/users       # Fetches from https://jsonplaceholder.typicode.com
+curl http://localhost:8080/posts       # Fetches from https://jsonplaceholder.typicode.com  
+curl http://localhost:8080/aggregate   # Aggregates from multiple HTTPS endpoints
 ```
+
+### 4. View Captured Traffic
+
+Open your browser:
+- **http://localhost:8090/viewer** - Web interface with Files/History views
 
 ## How It Works
 
-The system uses three Docker containers:
+The system uses three Docker containers working together:
 
-1. **transparent-proxy** - Runs mitmproxy with iptables rules to intercept traffic
-2. **app** - Your application container (shares network with proxy)
-3. **viewer** - Web interface to view captured requests
+### Architecture
+```
+┌─────────────────────────────────────────────────────────┐
+│                   Docker Network                        │
+├─────────────────────────────────────────────────────────┤
+│  ┌─────────────────┐       ┌──────────────────┐       │
+│  │  App Container  │──────►│ Transparent Proxy│──────►│ Internet
+│  │   (Your App)    │       │   (mitmproxy)    │       │ (HTTPS APIs)
+│  │                 │       │                  │       │
+│  │ - No proxy vars │       │ - iptables rules │       │
+│  │ - Auto CA trust │       │ - HTTPS decrypt  │       │
+│  └─────────────────┘       └──────────────────┘       │
+│         │                           │                  │
+│         └──────────────────────────▼──────────────────│
+│                              ┌──────────────┐         │
+│                              │   Captured   │         │
+│                              │    Files     │         │
+│                              └──────▲───────┘         │
+│                                     │                 │
+│                              ┌──────▼───────┐         │
+│                              │  Web Viewer  │◄────────│ Browser
+│                              │  Port 8090   │         │
+│                              └──────────────┘         │
+└─────────────────────────────────────────────────────────┘
+```
 
-The app container shares the network namespace with the proxy container, so all outbound HTTPS traffic is automatically captured without any proxy settings or certificates.
+### Key Components
+
+1. **transparent-proxy** - Runs mitmproxy with iptables rules to intercept all HTTP/HTTPS traffic
+2. **app** - Your application container (shares network namespace with proxy for transparent interception)
+3. **viewer** - Web interface to browse captured traffic with Files and History views
+
+### The Magic: No Configuration Required
+
+- The app container shares the network namespace with the proxy container
+- All outbound HTTPS traffic is automatically intercepted via iptables rules
+- The proxy's CA certificate is automatically trusted in the app container
+- Your application code needs **zero changes** - no proxy settings, no certificate installation
+
+## Example API - Demonstrating HTTPS Capture
+
+The `example-app/main.go` is a REST API that makes HTTPS calls to external services, perfect for demonstrating the transparent proxy:
+
+### API Endpoints
+
+| Endpoint | Description | External HTTPS Calls |
+|----------|-------------|---------------------|
+| `GET /health` | Health check | None (internal only) |
+| `GET /users` | Fetch user list | `https://jsonplaceholder.typicode.com/users` |
+| `GET /posts` | Fetch posts | `https://jsonplaceholder.typicode.com/posts?_limit=5` |
+| `GET /aggregate` | Aggregate data | Multiple HTTPS calls to fetch user, posts, and todos |
+
+### Running the Example API
+
+```bash
+# Method 1: Direct Docker exec
+docker exec app sh -c "cd /proxy/example-app && go run main.go"
+
+# Method 2: Using helper script
+./transparent-capture.sh run "cd /proxy/example-app && go run main.go"
+
+# The API runs on port 8080
+```
+
+### Testing the Example API
+
+```bash
+# Quick test all endpoints
+cd example-app && ./test.sh
+
+# Test individual endpoints
+curl http://localhost:8080/health     # No external calls
+curl http://localhost:8080/users      # Makes HTTPS call, fully captured
+curl http://localhost:8080/posts      # Makes HTTPS call, fully captured
+curl http://localhost:8080/aggregate  # Makes 3 HTTPS calls, all captured
+```
+
+All HTTPS traffic is transparently captured without any special configuration in the Go code!
 
 ## Common Commands
 
-### Starting and Stopping
+### Container Management
 
 ```bash
-./transparent-capture.sh start           # Start containers
-./transparent-capture.sh start --with-server  # Start with server
-./transparent-capture.sh server          # Start REST server
-./transparent-capture.sh stop-server     # Stop server only
-./transparent-capture.sh stop            # Stop everything
+# Start all containers
+docker compose -f docker-compose-transparent.yml up -d
+
+# Stop all containers  
+docker compose -f docker-compose-transparent.yml down
+
+# View logs
+docker logs transparent-proxy
+docker logs app
+docker logs mock-viewer
+
+# Rebuild after changes
+docker compose -f docker-compose-transparent.yml build --no-cache
 ```
 
 ### Running Applications

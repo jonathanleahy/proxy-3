@@ -29,7 +29,10 @@ func FetchUsers(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Fetching users from: %s", apiURL)
 
-	resp, err := http.Get(fmt.Sprintf("%s/users", apiURL))
+	// Create standard HTTP client
+	client := &http.Client{}
+
+	resp, err := client.Get(fmt.Sprintf("%s/users", apiURL))
 	if err != nil {
 		json.NewEncoder(w).Encode(Response{
 			Message:   "Error fetching users",
@@ -61,7 +64,10 @@ func FetchPosts(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Fetching posts from: %s", apiURL)
 
-	resp, err := http.Get(fmt.Sprintf("%s/posts?_limit=5", apiURL))
+	// Create standard HTTP client
+	client := &http.Client{}
+
+	resp, err := client.Get(fmt.Sprintf("%s/posts?_limit=5", apiURL))
 	if err != nil {
 		json.NewEncoder(w).Encode(Response{
 			Message:   "Error fetching posts",
@@ -102,18 +108,21 @@ func AggregateData(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Aggregating data from: %s", apiURL)
 
+	// Create standard HTTP client
+	client := &http.Client{}
+
 	// Fetch user
-	userResp, _ := http.Get(fmt.Sprintf("%s/users/1", apiURL))
+	userResp, _ := client.Get(fmt.Sprintf("%s/users/1", apiURL))
 	userBody, _ := io.ReadAll(userResp.Body)
 	userResp.Body.Close()
 
 	// Fetch posts
-	postsResp, _ := http.Get(fmt.Sprintf("%s/posts?userId=1&_limit=3", apiURL))
+	postsResp, _ := client.Get(fmt.Sprintf("%s/posts?userId=1&_limit=3", apiURL))
 	postsBody, _ := io.ReadAll(postsResp.Body)
 	postsResp.Body.Close()
 
 	// Fetch todos
-	todosResp, _ := http.Get(fmt.Sprintf("%s/todos?userId=1&_limit=3", apiURL))
+	todosResp, _ := client.Get(fmt.Sprintf("%s/todos?userId=1&_limit=3", apiURL))
 	todosBody, _ := io.ReadAll(todosResp.Body)
 	todosResp.Body.Close()
 
