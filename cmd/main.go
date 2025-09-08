@@ -168,6 +168,10 @@ func (ms *MockServer) handleGetFile(c echo.Context) error {
 }
 
 func (ms *MockServer) serveViewer(c echo.Context) error {
+	// Check if the new history viewer exists, otherwise fall back to original
+	if _, err := os.Stat("viewer-history.html"); err == nil {
+		return c.File("viewer-history.html")
+	}
 	return c.File("viewer.html")
 }
 

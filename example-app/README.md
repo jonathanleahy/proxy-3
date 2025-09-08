@@ -4,6 +4,16 @@ This is a simple Go REST API that makes external API calls - perfect for demonst
 
 ## Quick Start
 
+### Build and Test
+
+```bash
+# Build for Docker container (Linux/AMD64)
+./build.sh
+
+# Test the API endpoints
+./test.sh
+```
+
 ### 1. Run with Recording (Capture Mode)
 ```bash
 # Terminal 1: Start the capture proxy
