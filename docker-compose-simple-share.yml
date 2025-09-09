@@ -1,0 +1,49 @@
+version: '3'
+
+services:
+  transparent-proxy:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mitmproxy-universal
+    container_name: transparent-proxy
+    privileged: true
+    volumes:
+      - ./captured:/captured
+      - ./scripts:/scripts:ro
+      - certs:/certs
+    ports:
+      - "8080:8080"
+      - "8084:8084"
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app.minimal
+    container_name: app
+    depends_on:
+      - transparent-proxy
+    # Simpler network mode syntax
+    network_mode: "container:transparent-proxy"
+    volumes:
+      - ./:/proxy
+      - certs:/certs:ro
+    working_dir: /proxy
+    command: tail -f /dev/null
+
+  viewer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mock-viewer
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./configs:/app/configs
+      - ./captured:/app/captured
+      - ./viewer.html:/app/viewer.html:ro
+      - ./viewer-history.html:/app/viewer-history.html:ro
+    environment:
+      - PORT=8090
+
+volumes:
+  certs:
