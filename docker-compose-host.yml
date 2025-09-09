@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # Proxy using host network mode - bypasses all Docker networking issues
+  transparent-proxy:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mitmproxy-simple
+    container_name: transparent-proxy
+    network_mode: host
+    privileged: true
+    volumes:
+      - ./captured:/captured
+      - ./scripts:/scripts:ro
+      - ./certs:/certs
+    environment:
+      - TRANSPARENT_MODE=false
+      - PROXY_PORT=8084
+
+  # App also using host network
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app.minimal
+    container_name: app
+    network_mode: host
+    depends_on:
+      - transparent-proxy
+    volumes:
+      - ./:/proxy
+      - ./certs:/certs:ro
+    working_dir: /proxy
+    environment:
+      - HTTP_PROXY=http://127.0.0.1:8084
+      - HTTPS_PROXY=http://127.0.0.1:8084
+      - SSL_CERT_FILE=/certs/mitmproxy-ca-cert.pem
+    command: tail -f /dev/null
+
+  # Viewer also on host
+  viewer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mock-viewer
+    network_mode: host
+    volumes:
+      - ./configs:/app/configs
+      - ./captured:/app/captured
+    environment:
+      - PORT=8090
+
+volumes:
+  certs:

@@ -1,0 +1,27 @@
+# Dockerfile with fixed iptables handling
+FROM mitmproxy/mitmproxy:latest
+
+USER root
+
+# Install minimal requirements
+RUN apt-get update && \
+    apt-get install -y \
+        iptables \
+        iproute2 \
+        python3 \
+        ca-certificates \
+        procps && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy scripts
+COPY scripts/mitm_capture_improved.py /scripts/mitm_capture_improved.py
+COPY scripts/health_check_server.py /scripts/health_check_server.py
+COPY docker/transparent-entry-fixed-iptables.sh /entry.sh
+
+RUN chmod +x /entry.sh /scripts/*.py && \
+    mkdir -p /captured /certs && \
+    chown -R mitmproxy:mitmproxy /captured
+
+EXPOSE 8084 8080
+
+ENTRYPOINT ["/entry.sh"]

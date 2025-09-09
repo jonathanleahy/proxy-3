@@ -1,0 +1,29 @@
+# Simple mitmproxy without iptables
+FROM mitmproxy/mitmproxy:latest
+
+USER root
+
+# Only install essentials (no iptables)
+RUN apt-get update && \
+    apt-get install -y python3 ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy scripts
+COPY scripts/mitm_capture_improved.py /scripts/mitm_capture_improved.py
+COPY scripts/health_check_server.py /scripts/health_check_server.py
+
+# Simple entry script
+RUN echo '#!/bin/bash\n\
+mkdir -p ~/.mitmproxy /certs /captured\n\
+mitmdump --quiet >/dev/null 2>&1 & sleep 3; kill $! 2>/dev/null\n\
+[ -f ~/.mitmproxy/mitmproxy-ca-cert.pem ] && cp ~/.mitmproxy/mitmproxy-ca-cert.pem /certs/\n\
+echo "✅ Proxy ready on port 8084"\n\
+echo "📝 Configure apps with: HTTP_PROXY=http://localhost:8084 HTTPS_PROXY=http://localhost:8084"\n\
+exec mitmdump -p 8084 -s /scripts/mitm_capture_improved.py --set confdir=~/.mitmproxy\n\
+' > /entry.sh && chmod +x /entry.sh
+
+RUN mkdir -p /captured && chmod 777 /captured
+
+EXPOSE 8084
+
+ENTRYPOINT ["/entry.sh"]
