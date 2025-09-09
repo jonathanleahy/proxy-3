@@ -3,10 +3,9 @@ FROM golang:1.23-alpine
 
 WORKDIR /app
 
-# Install ca-certificates package for certificate management
-RUN apk add --no-cache ca-certificates
+# Install required packages
+RUN apk add --no-cache ca-certificates su-exec
 
-RUN apk add --no-cache su-exec
 # Create directory for custom certificates
 RUN mkdir -p /usr/local/share/ca-certificates
 
