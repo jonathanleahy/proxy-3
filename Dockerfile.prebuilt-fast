@@ -1,0 +1,19 @@
+# Use an image that already has everything we need
+FROM curlimages/curl:latest
+
+# Switch to root to install certificate
+USER root
+
+# Install ca-certificates if not present
+RUN apk add --no-cache ca-certificates
+
+# Copy certificate
+COPY mitmproxy-ca.pem /usr/local/share/ca-certificates/mitmproxy.crt
+
+# Update certificates
+RUN update-ca-certificates
+
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+WORKDIR /app
+CMD ["/bin/sh"]

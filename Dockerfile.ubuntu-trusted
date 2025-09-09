@@ -1,0 +1,20 @@
+FROM ubuntu:latest
+
+# Update and install packages
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    wget \
+    bash \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy certificate
+COPY mitmproxy-ca.pem /usr/local/share/ca-certificates/mitmproxy.crt
+
+# Update certificates
+RUN update-ca-certificates
+
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+WORKDIR /app
+CMD ["/bin/bash"]

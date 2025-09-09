@@ -1,0 +1,15 @@
+FROM alpine:latest
+
+# Alpine's apk is much faster than apt-get
+RUN apk add --no-cache curl ca-certificates
+
+# Copy certificate  
+COPY mitmproxy-ca.pem /usr/local/share/ca-certificates/mitmproxy.crt
+
+# Update certificates
+RUN update-ca-certificates
+
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+WORKDIR /app
+CMD ["/bin/sh"]

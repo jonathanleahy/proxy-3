@@ -1,0 +1,18 @@
+FROM debian:bookworm-slim
+
+# Debian slim is faster than full Ubuntu
+RUN apt-get update -qq && apt-get install -y -qq \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy certificate
+COPY mitmproxy-ca.pem /usr/local/share/ca-certificates/mitmproxy.crt
+
+# Update certificates
+RUN update-ca-certificates
+
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+WORKDIR /app
+CMD ["/bin/bash"]

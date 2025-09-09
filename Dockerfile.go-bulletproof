@@ -1,0 +1,57 @@
+FROM golang:1.21-bullseye
+
+# Install ca-certificates (Debian/Ubuntu style)
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+
+# Copy certificate
+COPY mitmproxy-ca.pem /usr/local/share/ca-certificates/mitmproxy.crt
+
+# Update certificates
+RUN update-ca-certificates
+
+# Set certificate environment
+ENV SSL_CERT_DIR=/etc/ssl/certs
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+WORKDIR /app
+
+# Create Go app that works without InsecureSkipVerify
+COPY <<'GOEOF' main.go
+package main
+
+import (
+    "fmt"
+    "io"
+    "net/http"
+    "os"
+)
+
+func main() {
+    fmt.Println("🔒 Testing HTTPS without InsecureSkipVerify...")
+    
+    client := &http.Client{}
+    
+    req, err := http.NewRequest("GET", "https://api.github.com/users/github", nil)
+    if err != nil {
+        fmt.Printf("❌ Request error: %v\n", err)
+        return
+    }
+    
+    if proxy := os.Getenv("HTTP_PROXY"); proxy != "" {
+        fmt.Printf("✅ Using proxy: %s\n", proxy)
+    }
+    
+    resp, err := client.Do(req)
+    if err != nil {
+        fmt.Printf("❌ HTTPS Error: %v\n", err)
+        return
+    }
+    defer resp.Body.Close()
+    
+    body, _ := io.ReadAll(resp.Body)
+    fmt.Printf("🎉 SUCCESS! Got %d bytes without --insecure!\n", len(body))
+    fmt.Printf("Sample: %.100s...\n", string(body))
+}
+GOEOF
+
+CMD ["go", "run", "main.go"]

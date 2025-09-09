@@ -1,0 +1,23 @@
+FROM alpine:latest
+
+# Install packages individually for better error handling
+RUN apk update && \
+    apk add --no-cache curl ca-certificates wget bash
+
+# Copy mitmproxy certificate
+COPY mitmproxy-ca.pem /usr/local/share/ca-certificates/mitmproxy.crt
+
+# Update certificate store
+RUN update-ca-certificates && \
+    echo "Certificate trust store updated" && \
+    ls -la /etc/ssl/certs/ | grep mitmproxy
+
+# Set all certificate environment variables
+ENV SSL_CERT_DIR=/etc/ssl/certs
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+
+WORKDIR /app
+
+CMD ["/bin/bash"]

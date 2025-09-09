@@ -1,0 +1,29 @@
+FROM alpine:latest
+
+# Update package index first
+RUN apk update
+
+# Install packages individually to catch errors
+RUN apk add --no-cache curl && \
+    apk add --no-cache ca-certificates && \
+    apk add --no-cache wget && \
+    apk add --no-cache bash
+
+# Alternative: use busybox if bash fails
+RUN if ! command -v bash > /dev/null; then \
+        echo "Bash not available, using busybox sh"; \
+    fi
+
+# Copy and install the mitmproxy certificate
+COPY mitmproxy-ca.pem /usr/local/share/ca-certificates/mitmproxy.crt
+
+# Update certificates
+RUN update-ca-certificates
+
+# Set certificate environment
+ENV SSL_CERT_DIR=/etc/ssl/certs
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+WORKDIR /app
+
+CMD ["/bin/sh"]

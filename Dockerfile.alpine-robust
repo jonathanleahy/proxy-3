@@ -1,0 +1,31 @@
+FROM alpine:3.22
+
+# Update with retry logic
+RUN for i in 1 2 3; do \
+        apk update && break || \
+        { echo "Attempt $i failed, retrying..."; sleep 5; } \
+    done
+
+# Install packages with individual error handling  
+RUN apk add --no-cache ca-certificates || \
+    { echo "Failed to install ca-certificates"; exit 1; }
+
+RUN apk add --no-cache curl || \
+    { echo "Failed to install curl, trying with different method"; \
+      apk add --no-cache wget && echo "Using wget instead of curl"; }
+
+# Verify installations
+RUN ls -la /usr/bin/curl || ls -la /usr/bin/wget
+RUN ls -la /etc/ssl/certs/ca-certificates.crt
+
+# Copy certificate
+COPY mitmproxy-ca.pem /usr/local/share/ca-certificates/mitmproxy.crt
+
+# Update certificates with verification
+RUN update-ca-certificates && \
+    ls -la /etc/ssl/certs/ | grep mitmproxy
+
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+WORKDIR /app
+CMD ["/bin/sh"]
