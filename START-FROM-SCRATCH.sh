@@ -167,32 +167,21 @@ else
     exit 1
 fi
 
-# Step 6: Start the app
+# Step 6: Start the app (using most reliable method)
 echo ""
 echo -e "${YELLOW}Step 6: Starting app on port $APP_PORT...${NC}"
 
-# First try with busybox (smallest)
+# Use golang:alpine with go run - most reliable
 docker run -d \
     --name app \
     -p $APP_PORT:8080 \
     -v $(pwd)/test-app:/app:ro \
+    -w /app \
     -e PORT=8080 \
     -e HTTP_PROXY=http://172.17.0.1:$PROXY_PORT \
     -e HTTPS_PROXY=http://172.17.0.1:$PROXY_PORT \
-    busybox \
-    /app/server 2>/dev/null || {
-        echo "Busybox failed, trying Alpine..."
-        docker rm app 2>/dev/null
-        docker run -d \
-            --name app \
-            -p $APP_PORT:8080 \
-            -v $(pwd)/test-app:/app:ro \
-            -e PORT=8080 \
-            -e HTTP_PROXY=http://172.17.0.1:$PROXY_PORT \
-            -e HTTPS_PROXY=http://172.17.0.1:$PROXY_PORT \
-            alpine:latest \
-            /app/server
-    }
+    golang:alpine \
+    go run main.go
 
 sleep 3
 
