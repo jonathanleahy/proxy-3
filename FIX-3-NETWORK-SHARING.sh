@@ -29,6 +29,14 @@ echo ""
 docker stop go-proxy-transparent app 2>/dev/null || true
 docker rm -f go-proxy-transparent app 2>/dev/null || true
 
+# BUILD IMAGES FIRST
+echo -e "${YELLOW}Building Docker images...${NC}"
+docker build -t proxy-3-transparent-proxy -f docker/Dockerfile.mitmproxy-universal . || \
+    docker build -t proxy-3-transparent-proxy -f docker/Dockerfile.mitmproxy .
+docker build -t proxy-3-viewer -f docker/Dockerfile.viewer . || \
+    docker build -t proxy-3-viewer -f Dockerfile .
+echo -e "${GREEN}✅ Images built${NC}"
+
 # Start proxy with transparent iptables
 echo -e "${YELLOW}Starting proxy with iptables rules...${NC}"
 docker run -d \

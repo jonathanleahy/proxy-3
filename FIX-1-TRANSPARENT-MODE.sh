@@ -31,6 +31,15 @@ docker compose down 2>/dev/null || true
 docker stop transparent-proxy app mock-viewer 2>/dev/null || true
 docker rm -f transparent-proxy app mock-viewer 2>/dev/null || true
 
+# BUILD IMAGES FIRST
+echo -e "${YELLOW}Building Docker images...${NC}"
+docker build -t proxy-3-transparent-proxy -f docker/Dockerfile.mitmproxy-universal . || \
+    docker build -t proxy-3-transparent-proxy -f docker/Dockerfile.mitmproxy .
+docker build -t proxy-3-app -f docker/Dockerfile.app .
+docker build -t proxy-3-mock-viewer -f docker/Dockerfile.viewer . || \
+    docker build -t proxy-3-mock-viewer -f Dockerfile .
+echo -e "${GREEN}✅ Images built${NC}"
+
 # Use the original transparent mode
 echo -e "${YELLOW}Starting transparent proxy system...${NC}"
 docker compose -f docker-compose-transparent.yml up -d

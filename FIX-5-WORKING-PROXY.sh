@@ -24,6 +24,15 @@ echo -e "${YELLOW}CONS:${NC}"
 echo "  ✗ Go apps need ProxyFromEnvironment"
 echo ""
 
+# BUILD IMAGES FIRST (in case FINAL-CLEANUP-AND-RUN doesn't build them)
+echo -e "${YELLOW}Building Docker images...${NC}"
+docker build -t proxy-image -f docker/Dockerfile.mitmproxy-simple . 2>/dev/null || \
+    docker build -t proxy-image -f docker/Dockerfile.mitmproxy-universal .
+docker build -t app-image -f docker/Dockerfile.app.minimal .
+docker build -t viewer-image -f docker/Dockerfile.viewer . 2>/dev/null || \
+    docker build -t viewer-image -f Dockerfile .
+echo -e "${GREEN}✅ Images built${NC}"
+
 # Just use the working solution
 echo -e "${YELLOW}Running FINAL-CLEANUP-AND-RUN.sh...${NC}"
 ./FINAL-CLEANUP-AND-RUN.sh
