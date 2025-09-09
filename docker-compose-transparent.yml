@@ -15,7 +15,7 @@ services:
       - certs:/certs  # Share certificates with app container
     networks:
       capture-net:
-        ipv4_address: 172.28.0.2
+        ipv4_address: 172.29.0.2  # Updated to match new subnet
     ports:
       - "8080:8080"  # Your main app's REST server (external access)
       - "8084:8084"  # mitmproxy transparent proxy (internal)
@@ -69,14 +69,14 @@ services:
       - PORT=8090
     networks:
       capture-net:
-        ipv4_address: 172.28.0.3
+        ipv4_address: 172.29.0.3  # Updated to match new subnet
 
 networks:
   capture-net:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.28.0.0/24
+        - subnet: 172.29.0.0/24  # Changed from 172.28 to avoid conflicts
 
 volumes:
   certs:  # Shared volume for certificates
