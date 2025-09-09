@@ -3,7 +3,8 @@
 # This uses iptables to transparently intercept all HTTPS traffic
 # NO code changes needed in your Go app!
 
-set -e
+# Don't exit on error immediately
+set +e
 
 # Colors
 GREEN='\033[0;32m'
@@ -15,6 +16,22 @@ NC='\033[0m'
 echo -e "${BLUE}═══════════════════════════════════════════════${NC}"
 echo -e "${BLUE}  FIX 1: TRANSPARENT MODE (iptables)${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════${NC}"
+
+# Check if Docker is running
+echo -e "${YELLOW}Checking Docker...${NC}"
+if ! docker info >/dev/null 2>&1; then
+    echo -e "${RED}❌ Docker daemon is not running!${NC}"
+    echo ""
+    echo "Please start Docker first:"
+    echo "  - On Linux: sudo systemctl start docker"
+    echo "  - On Mac: Open Docker Desktop"
+    echo "  - On Windows: Start Docker Desktop"
+    echo ""
+    echo "If Docker is installed but you lack permissions:"
+    echo "  sudo usermod -aG docker \$USER && newgrp docker"
+    exit 1
+fi
+echo -e "${GREEN}✅ Docker is running${NC}"
 echo ""
 echo -e "${GREEN}PROS:${NC}"
 echo "  ✓ No code changes needed"
@@ -42,7 +59,51 @@ echo -e "${GREEN}✅ Images built${NC}"
 
 # Use the original transparent mode
 echo -e "${YELLOW}Starting transparent proxy system...${NC}"
-docker compose -f docker-compose-transparent.yml up -d
+
+# Check if docker-compose exists
+if command -v docker-compose &> /dev/null; then
+    echo "Using docker-compose..."
+    docker-compose -f docker-compose-transparent.yml up -d
+elif docker compose version &> /dev/null 2>&1; then
+    echo "Using docker compose..."
+    docker compose -f docker-compose-transparent.yml up -d
+else
+    echo -e "${YELLOW}docker-compose not found, starting containers manually...${NC}"
+    
+    # Start containers manually
+    docker network create capture-net 2>/dev/null || true
+    
+    # Start proxy
+    docker run -d \
+        --name transparent-proxy \
+        --network capture-net \
+        --privileged \
+        --cap-add NET_ADMIN \
+        --cap-add NET_RAW \
+        -v $(pwd)/captured:/captured \
+        -v $(pwd)/scripts:/scripts:ro \
+        -v $(pwd)/docker/transparent-entry-universal.sh:/entry.sh:ro \
+        proxy-3-transparent-proxy \
+        /entry.sh
+    
+    # Start app
+    docker run -d \
+        --name app \
+        --network container:transparent-proxy \
+        -p 8080:8080 \
+        -v $(pwd):/proxy \
+        proxy-3-app \
+        sh -c "sleep 3600"
+    
+    # Start viewer
+    docker run -d \
+        --name mock-viewer \
+        --network capture-net \
+        -p 8090:8090 \
+        -v $(pwd)/configs:/app/configs \
+        -v $(pwd)/captured:/app/captured \
+        proxy-3-mock-viewer
+fi
 
 # Wait for proxy to be ready
 sleep 5
