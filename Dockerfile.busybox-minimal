@@ -1,0 +1,19 @@
+FROM alpine:latest
+
+# Only install ca-certificates (most essential)
+RUN apk update && apk add --no-cache ca-certificates
+
+# Copy certificate first
+COPY mitmproxy-ca.pem /usr/local/share/ca-certificates/mitmproxy.crt
+
+# Update certificates
+RUN update-ca-certificates
+
+# Verify busybox has wget
+RUN which wget || echo "No wget available"
+
+# Set certificate environment
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+WORKDIR /app
+CMD ["/bin/sh"]

@@ -1,0 +1,17 @@
+FROM alpine:3.19
+
+# Older Alpine version may have more stable packages
+RUN apk update && apk add --no-cache \
+    ca-certificates \
+    curl
+
+# Copy certificate
+COPY mitmproxy-ca.pem /usr/local/share/ca-certificates/mitmproxy.crt
+
+# Update certificates
+RUN update-ca-certificates
+
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+WORKDIR /app
+CMD ["/bin/sh"]
