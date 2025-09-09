@@ -55,6 +55,11 @@ if ! docker ps >/dev/null 2>&1; then
     exit 1
 fi
 
+# Clean up any conflicting networks
+echo -e "${YELLOW}Cleaning up Docker networks...${NC}"
+docker network rm proxy-3_capture-net 2>/dev/null || true
+docker network rm capture-net 2>/dev/null || true
+
 # Stop existing containers
 echo -e "${YELLOW}Stopping existing containers...${NC}"
 docker compose -f docker-compose-transparent.yml down 2>/dev/null || true
