@@ -46,9 +46,21 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Check Docker access
+if ! docker ps >/dev/null 2>&1; then
+    echo -e "${RED}❌ Cannot access Docker daemon${NC}"
+    echo "If you see 'permission denied', try:"
+    echo "  1. Run with sudo: sudo ./rebuild-proxy.sh"
+    echo "  2. Add user to docker group: sudo usermod -aG docker $USER && newgrp docker"
+    exit 1
+fi
+
 # Stop existing containers
 echo -e "${YELLOW}Stopping existing containers...${NC}"
 docker compose -f docker-compose-transparent.yml down 2>/dev/null || true
+
+# Create required directories with proper permissions
+mkdir -p captured configs certs 2>/dev/null || true
 
 # Build containers
 echo -e "${YELLOW}Building containers...${NC}"
