@@ -67,7 +67,7 @@ if [ "$(id -u)" = "0" ] && [ "$IS_APP_COMMAND" = "true" ]; then
     echo "  ./start-proxy-system.sh '$*'"
     echo ""
     echo "Or manually run as appuser:"
-    echo "  docker exec -d app su-exec appuser sh -c \"$*\""
+    echo "  docker exec -u appuser app sh -c \"$*\""
     echo ""
     echo "See README.md section: '🚀 Quick Start - Use Management Scripts'"
     echo "==========================================="
@@ -76,8 +76,8 @@ fi
 
 # Switch to appuser for running the application (if we're root and it's allowed)
 if [ "$(id -u)" = "0" ]; then
-    # Execute the command as appuser
-    exec su-exec appuser "$@"
+    # Use su with proper shell invocation
+    exec su - appuser -c "cd /app && $*"
 else
     # Already non-root, execute directly
     exec "$@"

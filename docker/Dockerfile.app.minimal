@@ -1,0 +1,18 @@
+# Minimal Dockerfile that avoids package installation issues
+FROM golang:1.23-alpine
+
+WORKDIR /app
+
+# Create non-root user without installing any packages
+RUN addgroup -g 1000 -S appuser && \
+    adduser -u 1000 -S appuser -G appuser && \
+    mkdir -p /usr/local/share/ca-certificates && \
+    chown -R appuser:appuser /app
+
+# Copy entry script
+COPY docker/app-entry-minimal.sh /app-entry.sh
+RUN chmod +x /app-entry.sh
+
+# Default command
+ENTRYPOINT ["/app-entry.sh"]
+CMD ["/bin/sh", "-c", "while true; do echo 'App container running. Override CMD to run your app.'; sleep 60; done"]
