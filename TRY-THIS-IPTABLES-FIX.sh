@@ -38,8 +38,10 @@ if docker logs transparent-proxy 2>&1 | grep -q "iptables-restore"; then
 else
     echo -e "${GREEN}✅ No iptables errors detected${NC}"
     
-    # Start app
-    docker exec -d app sh -c "cd /proxy/example-app && go run main.go" 2>/dev/null || true
+    # CRITICAL: Start app as UID 1000 (appuser) for iptables interception to work!
+    echo -e "${YELLOW}Starting app as UID 1000 (required for HTTPS interception)...${NC}"
+    docker exec -u 1000 -d app sh -c "cd /proxy/example-app && go run main.go" 2>/dev/null || true
+    sleep 5
     
     echo -e "\n${GREEN}🎉 Success! Transparent HTTPS interception working!${NC}"
     echo ""
