@@ -155,12 +155,8 @@ echo -e "${YELLOW}Step 5: Starting proxy on port $PROXY_PORT...${NC}"
 docker run -d \
     --name proxy \
     -p $PROXY_PORT:8080 \
-    -p 8081:8081 \
     mitmproxy/mitmproxy \
-    mitmdump \
-        --listen-port 8080 \
-        --web-port 8081 \
-        --web-host 0.0.0.0
+    mitmdump --listen-port 8080
 
 sleep 3
 
@@ -213,7 +209,6 @@ echo ""
 echo "Your system is now running:"
 echo "  • App on port $APP_PORT"
 echo "  • Proxy on port $PROXY_PORT"
-echo "  • Proxy Web UI on port 8081"
 echo ""
 echo -e "${YELLOW}TEST COMMANDS:${NC}"
 echo ""
@@ -226,11 +221,8 @@ echo ""
 echo "3. Test direct HTTPS (no proxy):"
 echo "   ${GREEN}curl http://localhost:$APP_PORT/direct${NC}"
 echo ""
-echo "4. View proxy logs:"
+echo "4. View proxy logs (captured traffic):"
 echo "   ${GREEN}docker logs proxy${NC}"
-echo ""
-echo "5. View proxy Web UI:"
-echo "   ${GREEN}http://localhost:8081${NC}"
 echo ""
 echo -e "${BLUE}The /test endpoint will be captured by the proxy.${NC}"
 echo -e "${BLUE}The /direct endpoint bypasses the proxy.${NC}"
