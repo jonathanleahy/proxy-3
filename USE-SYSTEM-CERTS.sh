@@ -30,8 +30,8 @@ CA_LOCATIONS=(
     "/opt/homebrew/etc/openssl@3/cert.pem"
     "/etc/ssl/cert.pem"
     "/etc/ssl/certs/ca-certificates.crt"
-    "$(brew --prefix)/etc/ca-certificates/cert.pem" 2>/dev/null
-    "$(python3 -m certifi)" 2>/dev/null
+    "$(brew --prefix 2>/dev/null)/etc/ca-certificates/cert.pem"
+    "$(python3 -m certifi 2>/dev/null)"
 )
 
 SYSTEM_CA=""
