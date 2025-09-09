@@ -1,0 +1,18 @@
+# Use Ubuntu image that already has curl installed
+FROM ubuntu:22.04
+
+# Skip apt-get entirely - just add certificate!
+# Most Ubuntu images already have curl and ca-certificates
+
+# Copy certificate
+COPY mitmproxy-ca.pem /usr/local/share/ca-certificates/mitmproxy.crt
+
+# Update certificates (this is fast)
+RUN update-ca-certificates
+
+# Set certificate environment
+ENV SSL_CERT_DIR=/etc/ssl/certs
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+WORKDIR /app
+CMD ["/bin/bash"]
