@@ -5,6 +5,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.mitmproxy
     container_name: transparent-proxy
+    privileged: true  # Required for iptables and network manipulation
     cap_add:
       - NET_ADMIN  # Required for iptables
       - NET_RAW    # Required for transparent proxy
