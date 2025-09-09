@@ -46,6 +46,7 @@ docker build -t proxy-image -f docker/Dockerfile.mitmproxy-simple . 2>/dev/null 
 docker build -t proxy-image -f docker/Dockerfile.mitmproxy-universal .
 
 docker build -t app-image -f docker/Dockerfile.app.minimal .
+docker build -t viewer-image -f docker/Dockerfile.viewer . 2>/dev/null || \
 docker build -t viewer-image -f Dockerfile .
 
 # Start proxy (simple mode, no iptables)
@@ -108,7 +109,9 @@ docker run -d \
     -v $(pwd)/captured:/app/captured \
     -v $(pwd)/viewer.html:/app/viewer.html:ro \
     -v $(pwd)/viewer-history.html:/app/viewer-history.html:ro \
+    -v $(pwd)/viewer-server.js:/app/viewer-server.js:ro \
     -e PORT=8090 \
+    -e CAPTURED_DIR=/app/captured \
     viewer-image
 
 echo -e "\n${YELLOW}Waiting for services to start...${NC}"
