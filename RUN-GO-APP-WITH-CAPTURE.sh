@@ -30,6 +30,12 @@ GO_APP_CMD="$*"
 echo -e "${YELLOW}Your Go app command:${NC} $GO_APP_CMD"
 echo ""
 
+# Clean up any existing containers
+echo -e "${YELLOW}Cleaning up existing containers...${NC}"
+docker stop app proxy viewer transparent-proxy mock-viewer 2>/dev/null || true
+docker rm app proxy viewer transparent-proxy mock-viewer 2>/dev/null || true
+docker compose down 2>/dev/null || true
+
 # First, try the original transparent mode
 echo -e "${YELLOW}Attempting transparent mode...${NC}"
 ./start-proxy-system.sh --skip "$GO_APP_CMD"
@@ -93,6 +99,11 @@ EOF
 
 chmod +x /tmp/go-proxy-wrapper.sh
 
+# Build proxy image if needed
+echo -e "${YELLOW}Building proxy image...${NC}"
+docker build -t proxy-image -f docker/Dockerfile.mitmproxy-simple . 2>/dev/null || \
+docker build -t proxy-image -f docker/Dockerfile.mitmproxy-universal .
+
 # Start proxy
 echo -e "${YELLOW}Starting proxy...${NC}"
 docker run -d \
@@ -104,16 +115,49 @@ docker run -d \
     proxy-image \
     sh -c "
         mkdir -p ~/.mitmproxy /captured
-        mitmdump --quiet >/dev/null 2>&1 & sleep 3; kill \$! 2>/dev/null || true
-        echo '✅ Proxy ready on port 8084'
+        # Generate certificate first
+        mitmdump --quiet >/dev/null 2>&1 & 
+        MITM_PID=\$!
+        sleep 3
+        kill \$MITM_PID 2>/dev/null || true
+        
+        # Verify certificate exists
+        if [ -f ~/.mitmproxy/mitmproxy-ca-cert.pem ]; then
+            echo '✅ Certificate generated'
+        else
+            echo '❌ Certificate generation failed'
+        fi
+        
+        echo '✅ Starting proxy on port 8084'
         exec mitmdump -p 8084 -s /scripts/mitm_capture_improved.py --set confdir=~/.mitmproxy
     "
 
-sleep 5
+# Wait for proxy to be ready and certificate to exist
+echo -e "${YELLOW}Waiting for proxy and certificate...${NC}"
+for i in {1..30}; do
+    if docker exec proxy test -f /root/.mitmproxy/mitmproxy-ca-cert.pem 2>/dev/null; then
+        echo -e "${GREEN}✅ Certificate ready${NC}"
+        break
+    fi
+    echo -n "."
+    sleep 1
+done
 
 # Get certificate
-echo -e "${YELLOW}Setting up certificate...${NC}"
-docker exec proxy sh -c "cat ~/.mitmproxy/mitmproxy-ca-cert.pem" > mitmproxy-ca.pem 2>/dev/null || true
+echo -e "${YELLOW}Copying certificate...${NC}"
+docker exec proxy cat /root/.mitmproxy/mitmproxy-ca-cert.pem > mitmproxy-ca.pem 2>/dev/null
+if [ -s mitmproxy-ca.pem ]; then
+    echo -e "${GREEN}✅ Certificate saved${NC}"
+else
+    echo -e "${RED}❌ Failed to get certificate${NC}"
+    echo "Trying alternate path..."
+    docker exec proxy cat ~/.mitmproxy/mitmproxy-ca-cert.pem > mitmproxy-ca.pem 2>/dev/null
+fi
+
+# Build app image if needed
+echo -e "${YELLOW}Building app image...${NC}"
+docker build -t app-image -f docker/Dockerfile.app.minimal . 2>/dev/null || \
+docker build -t app-image -f docker/Dockerfile.app .
 
 # Start your Go app with the wrapper
 echo -e "${YELLOW}Starting your Go app...${NC}"
@@ -127,6 +171,11 @@ docker run -d \
     -w /proxy \
     app-image \
     /wrapper.sh $GO_APP_CMD
+
+# Build viewer image if needed
+echo -e "${YELLOW}Building viewer image...${NC}"
+docker build -t viewer-image -f docker/Dockerfile.viewer . 2>/dev/null || \
+docker build -t viewer-image -f Dockerfile .
 
 # Start viewer
 echo -e "${YELLOW}Starting viewer...${NC}"
