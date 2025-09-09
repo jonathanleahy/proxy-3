@@ -1,0 +1,15 @@
+FROM alpine:latest
+
+# Only install absolute essentials
+RUN apk update && apk add --no-cache ca-certificates
+
+# Copy certificate
+COPY mitmproxy-ca.pem /usr/local/share/ca-certificates/mitmproxy.crt
+
+# Update certificates  
+RUN update-ca-certificates
+
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+WORKDIR /app
+CMD ["/bin/sh"]

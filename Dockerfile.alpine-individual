@@ -1,0 +1,28 @@
+FROM alpine:latest
+
+# Update package index
+RUN apk update
+
+# Install packages one by one with error handling
+RUN apk add --no-cache curl || echo "curl failed"
+RUN apk add --no-cache ca-certificates || echo "ca-certificates failed" 
+RUN apk add --no-cache wget || echo "wget failed"
+RUN apk add --no-cache bash || echo "bash failed"
+
+# Verify what was installed
+RUN which curl || echo "No curl"
+RUN which wget || echo "No wget" 
+RUN which bash || echo "No bash"
+
+# Copy certificate
+COPY mitmproxy-ca.pem /usr/local/share/ca-certificates/mitmproxy.crt
+
+# Update certificates
+RUN update-ca-certificates
+
+# Set certificate environment
+ENV SSL_CERT_DIR=/etc/ssl/certs
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+WORKDIR /app
+CMD ["/bin/sh"]
