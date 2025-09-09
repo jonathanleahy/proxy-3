@@ -10,6 +10,11 @@ const CAPTURED_DIR = process.env.CAPTURED_DIR || '/app/captured';
 // Serve static files
 app.use(express.static('/app'));
 
+// Root redirect
+app.get('/', (req, res) => {
+    res.redirect('/viewer');
+});
+
 // API endpoint for file list
 app.get('/api/files/:directory', (req, res) => {
     const dir = req.params.directory === 'configs' ? '/app/configs' : CAPTURED_DIR;
@@ -38,6 +43,39 @@ app.get('/api/file/:directory/:filename', (req, res) => {
         res.json(JSON.parse(content));
     } catch (error) {
         res.status(404).json({ error: 'File not found' });
+    }
+});
+
+// Capture status endpoint
+app.get('/capture/status', (req, res) => {
+    try {
+        const files = fs.readdirSync(CAPTURED_DIR)
+            .filter(f => f.endsWith('.json'));
+        
+        let totalRoutes = 0;
+        files.forEach(f => {
+            try {
+                const content = fs.readFileSync(path.join(CAPTURED_DIR, f), 'utf8');
+                const data = JSON.parse(content);
+                if (data.routes) {
+                    totalRoutes += data.routes.length;
+                }
+            } catch (e) {
+                // Skip invalid files
+            }
+        });
+        
+        res.json({
+            status: 'running',
+            captured_routes: totalRoutes,
+            files: files.length
+        });
+    } catch (error) {
+        res.json({
+            status: 'error',
+            captured_routes: 0,
+            files: 0
+        });
     }
 });
 

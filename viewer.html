@@ -105,7 +105,7 @@
     <script>
         // Configuration
         const MOCK_SERVER = 'http://localhost:8090';
-        const PROXY_SERVER = 'http://localhost:8091';
+        const PROXY_SERVER = window.location.origin; // Use same server as viewer
         
         let currentFile = null;
         let allRoutes = [];
@@ -128,7 +128,7 @@
                 const response = await fetch(`${PROXY_SERVER}/capture/status`);
                 const data = await response.json();
                 document.getElementById('proxyStatus').className = 'w-3 h-3 rounded-full bg-green-500';
-                document.getElementById('proxyPort').textContent = `8091 ✓ (${data.captured_routes} captured)`;
+                document.getElementById('proxyPort').textContent = `8090 ✓ (${data.captured_routes} captured)`;
             } catch {
                 document.getElementById('proxyStatus').className = 'w-3 h-3 rounded-full bg-red-500';
                 document.getElementById('proxyPort').textContent = 'Offline';
