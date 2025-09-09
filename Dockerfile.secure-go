@@ -1,0 +1,60 @@
+FROM golang:alpine
+
+# Install ca-certificates
+RUN apk add --no-cache ca-certificates
+
+# Copy mitmproxy certificate
+COPY mitmproxy-ca.pem /usr/local/share/ca-certificates/mitmproxy.crt
+
+# Update certificate store
+RUN update-ca-certificates
+
+# Set certificate environment
+ENV SSL_CERT_DIR=/etc/ssl/certs
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+WORKDIR /app
+
+# Create secure Go app (no InsecureSkipVerify!)
+COPY <<'GOEOF' main.go
+package main
+
+import (
+    "fmt"
+    "io"
+    "net/http"
+    "os"
+)
+
+func main() {
+    // Create client WITHOUT InsecureSkipVerify
+    client := &http.Client{}
+    
+    req, err := http.NewRequest("GET", "https://api.github.com/users/github", nil)
+    if err != nil {
+        fmt.Printf("Request error: %v\n", err)
+        return
+    }
+    
+    // Show proxy being used
+    if proxy := os.Getenv("HTTP_PROXY"); proxy != "" {
+        fmt.Printf("✅ Using proxy: %s\n", proxy)
+    }
+    
+    fmt.Println("🔒 Making HTTPS request WITHOUT InsecureSkipVerify...")
+    
+    resp, err := client.Do(req)
+    if err != nil {
+        fmt.Printf("❌ Error: %v\n", err)
+        return
+    }
+    defer resp.Body.Close()
+    
+    body, _ := io.ReadAll(resp.Body)
+    fmt.Printf("🎉 SUCCESS! Got %d bytes\n", len(body))
+    fmt.Println("🔐 Certificate was TRUSTED automatically!")
+    fmt.Printf("First 200 chars: %.200s...\n", string(body))
+}
+GOEOF
+
+CMD ["go", "run", "main.go"]
