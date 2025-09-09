@@ -64,13 +64,32 @@ docker run -d \
     -e HTTP_PROXY=http://172.17.0.1:8084 \
     -e HTTPS_PROXY=http://172.17.0.1:8084 \
     -e SSL_CERT_FILE=/ca.pem \
+    -e SSL_CERT_DIR=/etc/ssl/certs \
+    -e REQUESTS_CA_BUNDLE=/ca.pem \
+    -e NODE_EXTRA_CA_CERTS=/ca.pem \
     -w /home/appuser \
     golang:1.23-alpine \
     sh -c "
+        echo 'Setting up user...'
+        addgroup -g 1000 -S appuser 2>/dev/null || true
+        adduser -u 1000 -S appuser -G appuser 2>/dev/null || true
+        
+        echo 'Installing certificate...'
+        apk add --no-cache ca-certificates
+        cp /ca.pem /usr/local/share/ca-certificates/mitmproxy.crt
+        update-ca-certificates
+        
         echo 'Starting with proxy settings...'
         echo 'HTTP_PROXY=\$HTTP_PROXY'
         echo 'HTTPS_PROXY=\$HTTPS_PROXY'
-        $GO_APP_CMD
+        echo 'Certificate at: /ca.pem'
+        
+        # Create temp directory with proper permissions
+        cp -r /home/appuser/temp /tmp/app 2>/dev/null || true
+        cd /tmp/app 2>/dev/null || cd /home/appuser
+        
+        # Run as appuser
+        su appuser -c '$GO_APP_CMD'
     "
 
 echo -e "${GREEN}✅ App container starting...${NC}"
