@@ -1,0 +1,23 @@
+# Dockerfile for mitmproxy without iptables requirements
+FROM mitmproxy/mitmproxy:latest
+
+USER root
+
+# Install only what's needed (no iptables)
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy scripts
+COPY scripts/mitm_capture.py /scripts/mitm_capture.py
+COPY scripts/mitm_capture_improved.py /scripts/mitm_capture_improved.py
+COPY scripts/health_check_server.py /scripts/health_check_server.py
+COPY docker/transparent-entry-noiptables.sh /entry.sh
+
+RUN chmod +x /entry.sh /scripts/*.py && \
+    mkdir -p /captured /certs && \
+    chown -R mitmproxy:mitmproxy /captured
+
+EXPOSE 8084 8080
+
+ENTRYPOINT ["/entry.sh"]

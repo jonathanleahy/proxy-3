@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # Transparent MITM proxy - simplified without custom networks
+  transparent-proxy:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mitmproxy
+    container_name: transparent-proxy
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./captured:/captured
+      - ./scripts:/scripts:ro
+      - certs:/certs
+    ports:
+      - "8080:8080"
+      - "8084:8084"
+    # Remove custom network configuration
+    # network_mode: bridge (default)
+    environment:
+      - TRANSPARENT_MODE=true
+    # Remove sysctls that might cause issues
+    # sysctls removed
+
+  # Application container
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app.minimal
+    container_name: app
+    depends_on:
+      - transparent-proxy
+    # Share network with proxy container
+    network_mode: "service:transparent-proxy"
+    volumes:
+      - ./:/proxy
+      - certs:/certs:ro
+    working_dir: /proxy
+    environment:
+      - TARGET_API=https://api.github.com
+    command: |
+      sh -c "
+      echo '🚀 App container ready...'
+      tail -f /dev/null
+      "
+
+  # Mock viewer - separate network
+  viewer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mock-viewer
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./configs:/app/configs
+      - ./captured:/app/captured
+    environment:
+      - PORT=8090
+
+volumes:
+  certs:

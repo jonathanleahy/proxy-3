@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # MITM proxy in standard proxy mode (no iptables needed)
+  proxy:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mitmproxy-noiptables
+    container_name: proxy
+    volumes:
+      - ./captured:/captured
+      - ./scripts:/scripts:ro
+      - certs:/certs
+    ports:
+      - "8084:8084"  # Proxy port
+    environment:
+      - OUTPUT_DIR=/captured
+
+  # Application container with proxy configuration
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app.minimal
+    container_name: app
+    depends_on:
+      - proxy
+    volumes:
+      - ./:/proxy
+      - certs:/certs:ro
+    ports:
+      - "8080:8080"  # App port
+    working_dir: /proxy
+    environment:
+      # Configure app to use proxy
+      - HTTP_PROXY=http://proxy:8084
+      - HTTPS_PROXY=http://proxy:8084
+      - SSL_CERT_FILE=/certs/mitmproxy-ca-cert.pem
+      - REQUESTS_CA_BUNDLE=/certs/mitmproxy-ca-cert.pem
+      - NODE_EXTRA_CA_CERTS=/certs/mitmproxy-ca-cert.pem
+    command: tail -f /dev/null
+
+  # Mock viewer
+  viewer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mock-viewer
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./configs:/app/configs
+      - ./captured:/app/captured
+    environment:
+      - PORT=8090
+
+volumes:
+  certs:
