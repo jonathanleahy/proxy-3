@@ -11,11 +11,24 @@ PID_FILE="/tmp/mitmproxy.pid"
 HEALTH_PID_FILE="/tmp/health.pid"
 
 # Enable IP forwarding (handle read-only filesystem gracefully)
-if [ -w /proc/sys/net/ipv4/ip_forward ]; then
-    echo 1 > /proc/sys/net/ipv4/ip_forward
-    echo "✅ IP forwarding enabled"
+# Try multiple methods to enable IP forwarding
+IP_FORWARD_ENABLED=false
+
+# Method 1: Direct write (works with privileged mode)
+if echo 1 > /proc/sys/net/ipv4/ip_forward 2>/dev/null; then
+    IP_FORWARD_ENABLED=true
+    echo "✅ IP forwarding enabled via direct write"
+# Method 2: Using sysctl (works in some restricted environments)
+elif sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1; then
+    IP_FORWARD_ENABLED=true
+    echo "✅ IP forwarding enabled via sysctl"
+# Method 3: Check if already enabled
+elif [ "$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null)" = "1" ]; then
+    IP_FORWARD_ENABLED=true
+    echo "✅ IP forwarding already enabled"
 else
-    echo "⚠️  Cannot enable IP forwarding (read-only filesystem) - continuing anyway"
+    echo "⚠️  Cannot enable IP forwarding - continuing anyway"
+    echo "   Note: This may be fine if Docker's network is handling it"
 fi
 
 # Setup iptables rules for transparent proxy
