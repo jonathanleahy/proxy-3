@@ -149,7 +149,7 @@ start_app() {
     
     # Start the app as appuser (UID 1000) so traffic gets intercepted
     # Ensure SSL_CERT_FILE is set for certificate trust
-    docker exec -d app su-exec appuser sh -c "export SSL_CERT_FILE=/certs/mitmproxy-ca-cert.pem && $APP_COMMAND"
+    docker exec -d app su appuser -s /bin/sh -c "export SSL_CERT_FILE=/certs/mitmproxy-ca-cert.pem && $APP_COMMAND"
     
     # Wait for app to start
     sleep 3

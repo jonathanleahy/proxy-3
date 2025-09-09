@@ -76,8 +76,8 @@ fi
 
 # Switch to appuser for running the application (if we're root and it's allowed)
 if [ "$(id -u)" = "0" ]; then
-    # Use su with proper shell invocation
-    exec su - appuser -c "cd /app && $*"
+    # Use su without login shell (- flag) to avoid shell issues
+    exec su appuser -s /bin/sh -c "cd /app && $*"
 else
     # Already non-root, execute directly
     exec "$@"
