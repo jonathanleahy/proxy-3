@@ -134,14 +134,17 @@ func main() {
 EOF
 echo -e "${GREEN}✅ Test app created${NC}"
 
-# Step 4: Build the app
+# Step 4: Build the app (static binary for compatibility)
 echo ""
-echo -e "${YELLOW}Step 4: Building Go app...${NC}"
+echo -e "${YELLOW}Step 4: Building Go app (static binary)...${NC}"
 docker run --rm \
     -v $(pwd)/test-app:/app \
     -w /app \
+    -e CGO_ENABLED=0 \
+    -e GOOS=linux \
+    -e GOARCH=amd64 \
     golang:alpine \
-    go build -o server main.go
+    go build -a -installsuffix cgo -ldflags="-s -w" -o server main.go
 
 if [ ! -f test-app/server ]; then
     echo -e "${RED}Failed to build app${NC}"
@@ -171,6 +174,8 @@ fi
 # Step 6: Start the app
 echo ""
 echo -e "${YELLOW}Step 6: Starting app on port $APP_PORT...${NC}"
+
+# First try with busybox (smallest)
 docker run -d \
     --name app \
     -p $APP_PORT:8080 \
@@ -178,8 +183,20 @@ docker run -d \
     -e PORT=8080 \
     -e HTTP_PROXY=http://172.17.0.1:$PROXY_PORT \
     -e HTTPS_PROXY=http://172.17.0.1:$PROXY_PORT \
-    alpine:latest \
-    /app/server
+    busybox \
+    /app/server 2>/dev/null || {
+        echo "Busybox failed, trying Alpine..."
+        docker rm app 2>/dev/null
+        docker run -d \
+            --name app \
+            -p $APP_PORT:8080 \
+            -v $(pwd)/test-app:/app:ro \
+            -e PORT=8080 \
+            -e HTTP_PROXY=http://172.17.0.1:$PROXY_PORT \
+            -e HTTPS_PROXY=http://172.17.0.1:$PROXY_PORT \
+            alpine:latest \
+            /app/server
+    }
 
 sleep 3
 
