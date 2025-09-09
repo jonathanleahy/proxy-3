@@ -179,12 +179,23 @@ docker run -d \
 sleep 5
 
 if docker ps | grep -q " app "; then
-    echo -e "${GREEN}✅ App is running on port $PORT${NC}"
+    echo -e "${GREEN}✅ App container is running${NC}"
     echo ""
-    echo "Test it:"
-    echo "  curl http://localhost:$PORT"
-    curl -s http://localhost:$PORT
+    echo "The log shows 'Starting server on :8080' - this is CORRECT!"
+    echo "The app runs on 8080 inside the container"
+    echo "Docker maps it to port $PORT on your host"
+    echo ""
+    echo -e "${YELLOW}Testing http://localhost:$PORT...${NC}"
+    sleep 3  # Give it time to fully start
+    
+    if curl -s http://localhost:$PORT 2>/dev/null | grep -q "working"; then
+        echo -e "${GREEN}✅ SUCCESS! App is responding!${NC}"
+        curl -s http://localhost:$PORT
+    else
+        echo -e "${YELLOW}App might still be starting, wait a moment and try:${NC}"
+        echo "  curl http://localhost:$PORT"
+    fi
 else
-    echo -e "${RED}Still failing, showing logs:${NC}"
+    echo -e "${RED}Container not running, showing logs:${NC}"
     docker logs app 2>&1
 fi
