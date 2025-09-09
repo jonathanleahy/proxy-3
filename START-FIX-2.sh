@@ -12,6 +12,9 @@ BLUE='\033[0;34m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# Source cleanup function
+source ./cleanup-containers.sh
+
 # Default to your specific app if no argument provided
 GO_APP_CMD="${1:-go run ~/temp/aa/cmd/api/main.go}"
 
@@ -28,6 +31,9 @@ echo "          Proxy: http.ProxyFromEnvironment,"
 echo "      },"
 echo "  }"
 echo ""
+
+# Clean up first
+cleanup_all_containers
 
 # First ensure FIX-2 is running
 echo -e "${YELLOW}Setting up proxy mode...${NC}"

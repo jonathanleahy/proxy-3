@@ -12,6 +12,9 @@ BLUE='\033[0;34m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# Source cleanup function
+source ./cleanup-containers.sh
+
 # Default to your specific app if no argument provided
 GO_APP_CMD="${1:-go run ~/temp/aa/cmd/api/main.go}"
 
@@ -23,6 +26,9 @@ echo -e "${YELLOW}App: $GO_APP_CMD${NC}"
 echo ""
 echo -e "${GREEN}Proxy and app in same container!${NC}"
 echo ""
+
+# Clean up first
+cleanup_all_containers
 
 # First ensure FIX-4 setup is ready
 echo -e "${YELLOW}Setting up sidecar pattern...${NC}"
