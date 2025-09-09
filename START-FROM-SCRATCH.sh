@@ -14,41 +14,37 @@ echo -e "${BLUE}═════════════════════�
 echo ""
 
 # Step 1: Check what's using port 8080
-echo -e "${YELLOW}Step 1: Checking port 8080...${NC}"
+echo -e "${YELLOW}Step 1: Checking ports...${NC}"
+
+# Always check for existing app-simple container first
+if docker ps -a | grep -q app-simple; then
+    echo "Found existing app-simple container, removing it..."
+    docker stop app-simple 2>/dev/null || true
+    docker rm app-simple 2>/dev/null || true
+fi
+
 if lsof -i :8080 2>/dev/null | grep -q LISTEN; then
     echo -e "${RED}Port 8080 is in use by:${NC}"
     lsof -i :8080
     echo ""
-    echo -e "${YELLOW}Freeing port 8080...${NC}"
-    
-    # Try to stop Docker containers
-    docker ps --format "{{.Names}}" --filter "publish=8080" | xargs -r docker stop 2>/dev/null
-    docker ps --format "{{.Names}}" --filter "publish=8080" | xargs -r docker rm 2>/dev/null
-    
-    # Try to kill other processes
-    lsof -ti:8080 | xargs -r kill -9 2>/dev/null || {
-        echo -e "${RED}Cannot kill process - may need sudo${NC}"
-    }
-    
-    sleep 2
-    
-    # Check again
-    if lsof -i :8080 2>/dev/null | grep -q LISTEN; then
-        echo -e "${RED}Port 8080 still in use. Using alternative ports...${NC}"
-        USE_ALT_PORTS=true
-        APP_PORT=9080
-        PROXY_PORT=9084
-    else
-        echo -e "${GREEN}✅ Port 8080 is now free${NC}"
-        USE_ALT_PORTS=false
-        APP_PORT=8080
-        PROXY_PORT=8084
-    fi
+    echo -e "${YELLOW}Will use alternative ports 9080/9084${NC}"
+    USE_ALT_PORTS=true
+    APP_PORT=9080
+    PROXY_PORT=9084
 else
     echo -e "${GREEN}✅ Port 8080 is free${NC}"
     USE_ALT_PORTS=false
     APP_PORT=8080
     PROXY_PORT=8084
+fi
+
+# Also check the proxy port
+if lsof -i :$PROXY_PORT 2>/dev/null | grep -q LISTEN; then
+    echo -e "${RED}Port $PROXY_PORT is also in use${NC}"
+    # Increment ports
+    APP_PORT=$((APP_PORT + 1000))
+    PROXY_PORT=$((PROXY_PORT + 1000))
+    echo -e "${YELLOW}Using ports $APP_PORT and $PROXY_PORT instead${NC}"
 fi
 
 # Step 2: Clean up all Docker containers
