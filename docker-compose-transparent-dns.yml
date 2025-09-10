@@ -1,0 +1,91 @@
+services:
+  # Transparent MITM proxy with DNS fix
+  transparent-proxy:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mitmproxy
+    container_name: transparent-proxy
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    volumes:
+      - ./captured:/captured
+      - ./scripts:/scripts:ro
+      - ./dns-forwarder.sh:/dns-forwarder.sh:ro
+      - certs:/certs
+    networks:
+      capture-net:
+        ipv4_address: 10.5.0.2
+    ports:
+      - "8080:8080"
+      - "8084:8084"
+    environment:
+      - DNS_SERVERS=8.8.8.8,8.8.4.4
+    entrypoint: |
+      sh -c "
+      # Start DNS forwarder first
+      /dns-forwarder.sh &
+      
+      # Continue with normal startup
+      /scripts/transparent-entrypoint.sh
+      "
+
+  # Application container with DNS fix
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+    container_name: app
+    depends_on:
+      - transparent-proxy
+    network_mode: "service:transparent-proxy"
+    volumes:
+      - ./:/proxy
+      - certs:/certs:ro
+    working_dir: /proxy
+    environment:
+      TARGET_API: "https://api.github.com"
+      # Force external DNS resolution
+      GODEBUG: netdns=go
+    dns_options:
+      - use-vc
+      - edns0
+    command: |
+      sh -c "
+      # Add external DNS to resolv.conf
+      echo 'nameserver 8.8.8.8' > /etc/resolv.conf
+      echo 'nameserver 8.8.4.4' >> /etc/resolv.conf
+      
+      echo '🚀 App container ready with fixed DNS...'
+      echo '📡 DNS resolution should work now!'
+      tail -f /dev/null
+      "
+
+  # Mock viewer remains the same
+  mock-viewer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.viewer
+    container_name: mock-viewer
+    volumes:
+      - ./configs:/configs:ro
+      - ./captured:/captured:ro
+    networks:
+      capture-net:
+        ipv4_address: 10.5.0.3
+    ports:
+      - "8090:8090"
+
+networks:
+  capture-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.5.0.0/24
+
+volumes:
+  certs:

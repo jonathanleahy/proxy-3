@@ -1,0 +1,83 @@
+services:
+  # Transparent MITM proxy
+  transparent-proxy:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mitmproxy
+    container_name: transparent-proxy
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./captured:/captured
+      - ./scripts:/scripts:ro
+      - certs:/certs
+    networks:
+      capture-net:
+        ipv4_address: 10.5.0.2
+    ports:
+      - "8080:8080"
+      - "8084:8084"
+
+  # Application container with dynamic app mounting
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+    container_name: app
+    depends_on:
+      - transparent-proxy
+    network_mode: "service:transparent-proxy"
+    volumes:
+      - ./:/proxy
+      - certs:/certs:ro
+      # Mount app directory if APP_MOUNT_DIR is set
+      - ${APP_MOUNT_DIR:-./}:/app:rw
+    working_dir: ${APP_MOUNT_DIR:+/app}${APP_MOUNT_DIR:-/proxy}
+    environment:
+      TARGET_API: "https://api.github.com"
+      APP_MOUNT_DIR: ${APP_MOUNT_DIR:-}
+    command: |
+      sh -c "
+      if [ -d /app ] && [ \"\$(ls -A /app 2>/dev/null | grep -v home)\" ]; then
+        echo '📁 App mounted from host'
+        echo '📂 Working directory: /app'
+        cd /app
+        if [ -f go.mod ]; then
+          echo '📦 Found go.mod - downloading dependencies...'
+          go mod download 2>/dev/null || true
+        fi
+      else
+        echo '📂 Working directory: /proxy'
+      fi
+      echo '🚀 App container ready for your commands...'
+      echo '📡 Run your app with: ./run-app.sh \"go run main.go\"'
+      echo 'Waiting for commands...'
+      tail -f /dev/null
+      "
+
+  # Mock viewer
+  mock-viewer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.viewer
+    container_name: mock-viewer
+    volumes:
+      - ./configs:/configs:ro
+      - ./captured:/captured:ro
+    networks:
+      capture-net:
+        ipv4_address: 10.5.0.3
+    ports:
+      - "8090:8090"
+
+networks:
+  capture-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.5.0.0/24
+
+volumes:
+  certs:
