@@ -138,7 +138,13 @@ echo "────────────────────────�
 echo ""
 
 # Execute the command in the container as appuser
-docker exec -it -u appuser app /tmp/run-with-capture.sh $APP_CMD
+# Check if we have a TTY
+if [ -t 0 ]; then
+    docker exec -it -u appuser app /tmp/run-with-capture.sh $APP_CMD
+else
+    # Non-interactive mode
+    docker exec -u appuser app /tmp/run-with-capture.sh $APP_CMD
+fi
 
 EXIT_CODE=$?
 

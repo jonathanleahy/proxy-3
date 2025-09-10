@@ -159,3 +159,16 @@ echo ""
 
 # Store the compose file for later use
 echo "$COMPOSE_FILE" > .current-compose-file
+
+# Start health server automatically
+echo -e "${YELLOW}Starting health check server...${NC}"
+docker exec -d -u appuser app sh -c "
+    export SSL_CERT_FILE=/certs/mitmproxy-ca-cert.pem
+    cd /proxy
+    exec go run health-server.go
+" 2>/dev/null || true
+
+sleep 2
+if curl -s -f http://localhost:8080/health > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ Health server running on http://localhost:8080${NC}"
+fi
